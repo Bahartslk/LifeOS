@@ -1,0 +1,30 @@
+# --- Secrets / environment ---
+.env
+.env.*
+!.env.example
+*.pem
+
+# --- Backend (NestJS) ---
+backend/node_modules/
+backend/dist/
+backend/coverage/
+backend/generated/
+
+# --- Mobile (Kotlin Multiplatform / Compose Multiplatform) ---
+mobile/.gradle/
+mobile/build/
+mobile/*/build/
+mobile/**/build/
+mobile/.kotlin/
+mobile/local.properties
+mobile/*.iml
+mobile/.idea/
+mobile/iosApp/build/
+mobile/iosApp/Pods/
+mobile/iosApp/*.xcworkspace/xcuserdata/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+*.log

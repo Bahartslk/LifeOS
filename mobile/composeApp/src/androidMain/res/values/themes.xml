@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Minimal launch theme. All real theming (colors, typography, shapes) is
+        owned by the Compose Material 3 theme in core/designsystem/theme, per
+        docs/06-design-system.md. This XML theme only controls the window
+        background before Compose takes over.
+    -->
+    <style name="Theme.LifeOS" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Scoped cleartext (HTTP, not HTTPS) exception for the local dev backend
+  only, per ApiConfig.BASE_URL's "10.0.2.2 is the Android emulator's host
+  alias" note — Android blocks cleartext traffic by default since API 28,
+  and this backend has no TLS in local development. Every other domain
+  still follows the platform default (cleartext blocked).
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

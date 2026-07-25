@@ -1,0 +1,403 @@
+// LifeOS Prisma schema.
+//
+// Sprint 13.0 (Backend Foundation) added `User`. Sprint 14.0 (Authentication
+// Backend) added `RefreshToken`. Sprint 15.0 (Planner Backend) added
+// `TaskList`/`Task`. Sprint 16.0 (Travel Backend) added `Trip`/`ItineraryItem`.
+// Sprint 17.0 (Users / Profile Backend) extends `User` in place with profile
+// + preference fields, per that sprint's explicit "extend the existing User
+// model only" scope — no new `user_preferences` table (see `User`'s doc
+// comment below for why). Every other entity in docs/14-database-design.md
+// (ai_conversations, ai_messages) is intentionally still absent — each is
+// added model-by-model as its owning feature module is implemented, not all
+// at once.
+
+generator client {
+  provider      = "prisma-client-js"
+  // "linux-musl-openssl-3.0.x" is required for the Docker runtime image
+  // (node:20-alpine ships OpenSSL 3, not the 1.1.x the default "linux-musl"
+  // target expects) — without it the container fails at startup with
+  // "Error loading shared library libssl.so.1.1: No such file or
+  // directory". "native" keeps local (non-Docker) development working on
+  // whatever platform this is generated on.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Core account record (docs/14-database-design.md#entities, FR-AUTH-01,
+/// FR-PROFILE-01). `trips`, `task_lists`, `tasks`, and `ai_conversations`
+/// are added by their owning feature module's sprint, each adding its own
+/// `@relation` back to this model at that time.
+///
+/// Sprint 17.0 (Users / Profile Backend) added `bio`/`timezone`/`language`/
+/// `themePreference`/`notificationPreferences` directly on this model,
+/// deliberately NOT as a separate `user_preferences` table the way
+/// docs/14-database-design.md's original data model groups them — that
+/// sprint's explicit "extend the existing User model only if required...
+/// Do NOT introduce unnecessary tables" scope. All five are additive with
+/// safe defaults (see each field's own comment), so this is a backward
+/// -compatible migration over the existing `users` rows from prior
+/// sprints' testing. `notificationPreferences` is `Json`, not fixed
+/// boolean columns — its shape is validated at the DTO layer
+/// (`NotificationPreferencesDto`), so a future sprint can add a new
+/// preference key without a schema migration, per that sprint's "should be
+/// extensible" requirement.
+///
+/// Two indexes from docs/14-database-design.md#indexing-strategy cannot be
+/// expressed in Prisma's schema DSL and are instead hand-added as raw SQL
+/// in this model's initial migration (see
+/// `prisma/migrations/*_init_user/migration.sql`):
+///   - A case-insensitive unique index on `lower(email)` — `email` below has
+///     no `@unique`, since a plain column-level unique index would only
+///     guard exact-case duplicates, not the case-insensitive uniqueness the
+///     docs require.
+///   - A partial index on `id` `WHERE deleted_at IS NULL`, for fast active
+///     -account lookups independent of retained soft-deleted rows.
+model User {
+  id                      String         @id @default(uuid()) @db.Uuid
+  email                   String
+  passwordHash            String         @map("password_hash")
+  displayName             String         @map("display_name")
+  avatarUrl               String?        @map("avatar_url")
+  /// Free-text, short "about me" — never shown to other users (no
+  /// sharing/social model exists in this app), just a self-description on
+  /// the caller's own profile screen.
+  bio                     String?
+  /// IANA-style "Area/Location" string (e.g. "Europe/Istanbul"), validated
+  /// at the DTO layer, not a Postgres enum — the IANA tz database has
+  /// hundreds of values and changes over time, unlike `themePreference`'s
+  /// fixed 3-value set. Defaults to the project's Turkish-user assumption
+  /// already established throughout this codebase (CLAUDE.md: "Turkish UI
+  /// text").
+  timezone                String         @default("Europe/Istanbul")
+  /// ISO 639-1 (optionally + region, e.g. "tr", "en-US"), validated at the
+  /// DTO layer for the same "too many values for an enum" reason as
+  /// `timezone`. Defaults to "tr", matching this app's Turkish-only UI
+  /// today.
+  language                String         @default("tr")
+  /// Mirrors the mobile client's `com.lifeos.app.core.storage.ThemeMode`
+  /// enum exactly (same tokens: SYSTEM/LIGHT/DARK) — the same "must match
+  /// mobile" parity rule Sprints 15–16 applied to Planner/Travel enums.
+  /// Mobile already persists this locally (`ThemePreferenceStorage`); this
+  /// column is the future real backend for it once mobile's Profile
+  /// feature switches from local-only to synced.
+  themePreference         ThemeMode      @default(SYSTEM) @map("theme_preference")
+  /// See this model's own doc comment for why `Json`, not fixed columns.
+  /// Known keys validated by `NotificationPreferencesDto` today:
+  /// `taskReminders`, `tripReminders`, `aiInsights` — one per this app's
+  /// three feature domains (Planner, Travel, AI Assistant).
+  notificationPreferences Json           @default("{\"taskReminders\": true, \"tripReminders\": true, \"aiInsights\": true}") @map("notification_preferences")
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt               DateTime?      @map("deleted_at") @db.Timestamptz
+  refreshTokens           RefreshToken[]
+  taskLists               TaskList[]
+  tasks                   Task[]
+  trips                   Trip[]
+
+  @@map("users")
+}
+
+/// Mirrors the mobile client's `com.lifeos.app.core.storage.ThemeMode`
+/// enum exactly (same tokens) — see `User.themePreference`'s doc comment.
+enum ThemeMode {
+  SYSTEM
+  LIGHT
+  DARK
+}
+
+/// A single refresh token's server-side record (docs/14-database-design.md
+/// #entities, FR-AUTH-03/05). The raw token is never persisted — only
+/// `tokenHash`, per docs/12-project-architecture.md#jwt-strategy.
+///
+/// `tokenHash` is SHA-256, not bcrypt — deliberately different from
+/// password hashing. bcrypt has no equality-searchable form (each hash of
+/// the same input differs, so "look up the row for this raw token" isn't
+/// expressible as a query without a slow full-table bcrypt.compare scan or
+/// added complexity like a separate selector/verifier split). A refresh
+/// token is already a high-entropy random secret generated by this server
+/// (unlike a human-chosen password), so it doesn't need a slow, memory-hard
+/// hash for brute-force resistance — a fast, deterministic, directly
+/// indexable SHA-256 digest is the standard, correct choice here.
+///
+/// `revoked_at` (not deletion) tracks invalidation, preserving audit
+/// history and enabling reuse-of-a-revoked-token detection
+/// (docs/12-project-architecture.md#jwt-strategy: "Refresh token
+/// rotation"). `family_id` groups every token descended from one login
+/// through subsequent rotations; presenting an already-revoked token
+/// revokes the whole family, per the same doc.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  familyId  String    @map("family_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+/// Mirrors the mobile client's `com.lifeos.app.features.planner.domain.model.TaskPriority`
+/// enum exactly (same tokens) — Sprint 15.0's "must match the mobile
+/// Planner architecture" requirement. Postgres native enums sort by
+/// declaration order, so `ORDER BY priority` already sorts low-to-high with
+/// no extra mapping.
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// Mirrors `TaskStatus` on mobile exactly.
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+/// Mirrors `TaskSource` on mobile exactly — provenance, so a future Travel
+/// or AI backend module creating a `Task` can be told apart from one the
+/// user created directly in Planner. `HOME` exists because mobile's enum
+/// has it (Home never creates tasks, only reads them, but the value exists
+/// there for symmetry) — kept here for the same 1:1 parity reason.
+enum TaskSource {
+  PLANNER
+  HOME
+  TRAVEL
+  AI_ASSISTANT
+}
+
+/// Not present on mobile yet (mobile has no `TaskList`/`taskListId` concept
+/// today — see `TaskList`'s own doc comment). Values are this sprint's
+/// "Personal, Work, Travel, Custom" examples.
+enum TaskListType {
+  PERSONAL
+  WORK
+  TRAVEL
+  CUSTOM
+}
+
+/// Sprint 15.0's "support multiple lists" requirement. No `TaskList`
+/// controller/service/API exists yet — only this sprint's explicit 8-route
+/// API list was built, and it has no task-list routes — so lists can
+/// currently only be created directly in the database; `Task.taskListId`
+/// stays nullable and every task created through the API today is
+/// uncategorized, exactly matching docs/14-database-design.md's existing
+/// "a task may exist without belonging to any list" design. Schema exists
+/// now so a future sprint's `TaskListsController` needs no migration of its
+/// own — see `src/modules/README.md` for the suggested next step.
+///
+/// No `@@index([userId])` here — the actual index
+/// (`task_lists_user_id_idx`) is a *partial* index (`WHERE deleted_at IS
+/// NULL`, per docs/14-database-design.md#indexing-strategy), hand-added as
+/// raw SQL in this model's migration since Prisma's schema DSL can't
+/// express partial indexes. Declaring a plain `@@index([userId])` here too
+/// would describe a different (non-partial) index than what's actually in
+/// the database under that same name, which `prisma migrate dev` detects
+/// as drift and tries to "fix" with an unwanted follow-up migration on
+/// every future schema change — same reasoning as `User`'s email index.
+model TaskList {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  name      String
+  type      TaskListType @default(CUSTOM)
+  colorTag  String?      @map("color_tag")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt DateTime?    @map("deleted_at") @db.Timestamptz
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@map("task_lists")
+}
+
+/// Planner's canonical task record — the backend counterpart of mobile's
+/// `com.lifeos.app.features.planner.domain.model.Task`. Field set matches
+/// Sprint 15.0's explicit `TASK MODEL` list exactly, which is deliberately
+/// narrower than mobile's full `Task`: mobile's own `Task.kt` doc comment
+/// already describes `category`/`tags`/`hasReminder`/`estimatedDurationLabel`
+/// as "client-only enrichment" with "adding columns for these later [as] an
+/// additive, non-breaking migration" — i.e. mobile's own design already
+/// anticipated this backend shipping without them first. `notes`/subtasks/
+/// attachments/activity (mobile's `TaskDetail`) are explicitly "UI only, no
+/// real persistence" per that model's own doc comments, so none of them are
+/// here either.
+///
+/// `dueDate`/`dueTime` are two columns, not
+/// docs/14-database-design.md's single `due_date timestamptz` — a
+/// deliberate deviation reconciled in that doc. This mirrors mobile's
+/// `TaskDueDate(date: LocalDate, time: LocalTime?)` exactly: `dueDate` is
+/// required (every mobile `Task` has one), `dueTime` is nullable (an
+/// all-day task has a date but no time-of-day). `@db.Date`/`@db.Time` store
+/// them as native date-only/time-only Postgres columns, not full
+/// timestamps.
+///
+/// `source` defaults to `PLANNER` and is never client-settable through
+/// `POST /planner/tasks` (see `PlannerService.createTask`) — provenance
+/// must not be spoofable by the caller.
+model Task {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  taskListId    String?        @map("task_list_id") @db.Uuid
+  title         String
+  description   String?
+  dueDate       DateTime       @map("due_date") @db.Date
+  dueTime       DateTime?      @map("due_time") @db.Time
+  priority      TaskPriority
+  status        TaskStatus     @default(TODO)
+  source        TaskSource     @default(PLANNER)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskList      TaskList?      @relation(fields: [taskListId], references: [id], onDelete: SetNull)
+  itineraryItem ItineraryItem?
+
+  @@index([taskListId])
+  @@map("tasks")
+}
+
+/// Mirrors the mobile client's `com.lifeos.app.features.travel.domain.model.TripStatus`
+/// enum exactly (same tokens) — Sprint 16.0's "must match the existing
+/// mobile Travel architecture" requirement, the same parity rule Sprint
+/// 15.0 applied to `TaskPriority`/`TaskStatus`/`TaskSource`. Bucketing for
+/// `GET /travel/dashboard` reads this column directly (not derived from
+/// today vs. `startDate`/`endDate`) — the status is the explicit source of
+/// truth for a trip's lifecycle stage; no scheduled job auto-transitions it
+/// yet (a real gap, not silently papered over — see `TravelService`'s doc
+/// comment).
+enum TripStatus {
+  PLANNED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+/// Sprint 16.0's "suggested enum" — the category of one `ItineraryItem`.
+/// No fixed list was specified; this set covers the common trip-planning
+/// categories without reaching into the explicitly out-of-scope Bookings
+/// domain (no confirmation numbers, prices, or external references).
+enum ItineraryItemType {
+  FLIGHT
+  ACCOMMODATION
+  ACTIVITY
+  TRANSPORTATION
+  MEAL
+  OTHER
+}
+
+/// Optional sub-classification, only meaningful when `ItineraryItem.type`
+/// is `TRANSPORTATION` — validated in `ItineraryService`, not by the schema
+/// (Prisma can't express a conditional column constraint). Kept as a plain
+/// nullable enum column rather than a real Bookings/Flights table, per this
+/// sprint's explicit "Do NOT implement ... Bookings" scope.
+enum TransportationType {
+  FLIGHT
+  TRAIN
+  BUS
+  CAR
+  FERRY
+  OTHER
+}
+
+/// Optional sub-classification, only meaningful when `ItineraryItem.type`
+/// is `ACCOMMODATION` — same reasoning as `TransportationType`.
+enum AccommodationType {
+  HOTEL
+  HOSTEL
+  APARTMENT
+  GUESTHOUSE
+  OTHER
+}
+
+/// Backend counterpart of mobile's `com.lifeos.app.features.travel.domain.model.Trip`
+/// — field set matches Sprint 16.0's explicit `TRIP MODEL` list, which
+/// splits mobile's single `destinationCity`/`destinationCountry` pair into
+/// this model's `destination`/`country` (already how docs/14 named the
+/// relationship, just previously collapsed into one `destination` string —
+/// reconciled in that doc now). Mobile's `Trip.dateRangeLabel` (a
+/// pre-formatted display string) is NOT mirrored here — `startDate`/
+/// `endDate` are real dates instead, the same "domain owns real dates,
+/// presentation formats them" precedent `Task`/`TaskDueDate` already
+/// established for Planner; mobile's own `Trip` model hasn't had that
+/// refactor yet (unlike `Task`, which already had it before Sprint 15.0),
+/// so this is backend-ahead-of-mobile here, the reverse of Planner's
+/// situation — see `TravelService`'s doc comment.
+///
+/// Two indexes from docs/14-database-design.md#indexing-strategy cannot be
+/// expressed in Prisma's schema DSL and are hand-added as raw SQL in this
+/// model's migration, the same `User`/`TaskList` pattern: a partial
+/// composite index on `(user_id, start_date)` `WHERE deleted_at IS NULL`
+/// (no matching `@@index` declared here, to avoid the drift-detection loop
+/// documented on `TaskList`).
+model Trip {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  title          String
+  description    String?
+  destination    String
+  country        String
+  startDate      DateTime        @map("start_date") @db.Date
+  endDate        DateTime        @map("end_date") @db.Date
+  status         TripStatus      @default(PLANNED)
+  coverImageUrl  String?         @map("cover_image_url")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?       @map("deleted_at") @db.Timestamptz
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itineraryItems ItineraryItem[]
+
+  @@map("trips")
+}
+
+/// Backend counterpart of mobile's `ItineraryDay`/`ItineraryActivity` pair —
+/// but a different shape: mobile groups activities under a day number with
+/// a Morning/Afternoon/Evening period and free-text description, with no
+/// per-activity date, time, location, or explicit order. Sprint 16.0's
+/// `ITINERARY MODEL` list specifies real, individually-orderable items
+/// instead (date + optional start/end time + location + `orderIndex` +
+/// `type`), matching this document's schema precisely — mobile's screen
+/// will need its own refactor to consume this directly, the same kind of
+/// gap `Trip`'s doc comment notes for `startDate`/`endDate`.
+///
+/// No `deletedAt` — hard delete, cascading with the parent trip, per
+/// docs/14-database-design.md#key-design-decisions ("deliberately not
+/// [soft-deleted] ... only ever meaningful in the context of their
+/// parent").
+///
+/// `taskId` is this sprint's Planner integration point (see `ItineraryService`'s
+/// doc comment): nullable, set only when the item was created with
+/// `createTask: true`. `onDelete: SetNull` on the relation to `Task` means
+/// if the linked task is ever hard-deleted independently (not the normal
+/// path — Planner only soft-deletes), this column just clears rather than
+/// blocking that delete.
+model ItineraryItem {
+  id                 String              @id @default(uuid()) @db.Uuid
+  tripId             String              @map("trip_id") @db.Uuid
+  title              String
+  description        String?
+  date               DateTime            @db.Date
+  startTime          DateTime?           @map("start_time") @db.Time
+  endTime            DateTime?           @map("end_time") @db.Time
+  location           String?
+  orderIndex         Int                 @map("order_index")
+  type               ItineraryItemType
+  transportationType TransportationType? @map("transportation_type")
+  accommodationType  AccommodationType?  @map("accommodation_type")
+  taskId             String?             @unique @map("task_id") @db.Uuid
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  trip               Trip                @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  task               Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([tripId])
+  @@map("itinerary_items")
+}

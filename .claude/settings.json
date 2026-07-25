@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm \"c:\\\\Users\\\\bhrto\\\\OneDrive\\\\Masaüstü\\\\LifeOS\\\\backend\\\\src\\\\modules\\\\planner\\\\utils\\\\task-date.util.ts\")",
+      "Bash(rmdir \"c:\\\\Users\\\\bhrto\\\\OneDrive\\\\Masaüstü\\\\LifeOS\\\\backend\\\\src\\\\modules\\\\planner\\\\utils\")"
+    ]
+  }
+}
