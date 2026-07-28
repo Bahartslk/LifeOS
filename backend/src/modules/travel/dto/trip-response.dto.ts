@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TripStatus } from '@prisma/client';
+import { TripCategory, TripStatus } from '@prisma/client';
 
 /** The only shape a `Trip` is ever sent over the API — `userId`/`deletedAt` never leave the repository layer. */
 export class TripResponseDto {
@@ -26,6 +26,15 @@ export class TripResponseDto {
 
   @ApiProperty({ enum: TripStatus })
   status!: TripStatus;
+
+  @ApiProperty({ enum: TripCategory })
+  category!: TripCategory;
+
+  @ApiProperty({ nullable: true, type: Number })
+  weatherTemperatureCelsius!: number | null;
+
+  @ApiProperty({ nullable: true, type: Number })
+  windSpeedKmh!: number | null;
 
   @ApiProperty({ nullable: true, type: String })
   coverImageUrl!: string | null;

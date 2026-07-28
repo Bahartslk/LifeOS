@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Trip, TripStatus } from '@prisma/client';
+import { Trip, TripCategory, TripStatus } from '@prisma/client';
 import { fromDbDate, toDbDate } from '../../common/utils/date-time.util';
 import { TripsRepository } from './repositories/trips.repository';
 import { ItineraryItemsRepository } from './repositories/itinerary-items.repository';
@@ -48,6 +48,9 @@ export class TravelService {
       country: dto.country,
       startDate: toDbDate(dto.startDate),
       endDate: toDbDate(dto.endDate),
+      category: dto.category ?? TripCategory.RELAX,
+      weatherTemperatureCelsius: dto.weatherTemperatureCelsius ?? null,
+      windSpeedKmh: dto.windSpeedKmh ?? null,
       coverImageUrl: dto.coverImageUrl ?? null,
     });
 
@@ -73,6 +76,11 @@ export class TravelService {
       ...(dto.endDate !== undefined && { endDate: toDbDate(dto.endDate) }),
       ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
       ...(dto.status !== undefined && { status: dto.status }),
+      ...(dto.category !== undefined && { category: dto.category }),
+      ...(dto.weatherTemperatureCelsius !== undefined && {
+        weatherTemperatureCelsius: dto.weatherTemperatureCelsius,
+      }),
+      ...(dto.windSpeedKmh !== undefined && { windSpeedKmh: dto.windSpeedKmh }),
     });
 
     if (!trip) {
@@ -189,6 +197,9 @@ export class TravelService {
       startDate: fromDbDate(trip.startDate),
       endDate: fromDbDate(trip.endDate),
       status: trip.status,
+      category: trip.category,
+      weatherTemperatureCelsius: trip.weatherTemperatureCelsius,
+      windSpeedKmh: trip.windSpeedKmh,
       coverImageUrl: trip.coverImageUrl,
       createdAt: trip.createdAt,
       updatedAt: trip.updatedAt,

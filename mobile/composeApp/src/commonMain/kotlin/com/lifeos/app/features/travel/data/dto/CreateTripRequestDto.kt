@@ -11,5 +11,8 @@ data class CreateTripRequestDto(
     val country: String,
     val startDate: String,
     val endDate: String,
+    val category: String,
+    val weatherTemperatureCelsius: Int? = null,
+    val windSpeedKmh: Int? = null,
     val coverImageUrl: String? = null,
 )

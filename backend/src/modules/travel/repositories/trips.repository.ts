@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Trip, TripStatus } from '@prisma/client';
+import { Prisma, Trip, TripCategory, TripStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface CreateTripData {
@@ -10,13 +10,25 @@ export interface CreateTripData {
   country: string;
   startDate: Date;
   endDate: Date;
+  category: TripCategory;
+  weatherTemperatureCelsius: number | null;
+  windSpeedKmh: number | null;
   coverImageUrl: string | null;
 }
 
 export type UpdateTripData = Partial<
   Pick<
     CreateTripData,
-    'title' | 'description' | 'destination' | 'country' | 'startDate' | 'endDate' | 'coverImageUrl'
+    | 'title'
+    | 'description'
+    | 'destination'
+    | 'country'
+    | 'startDate'
+    | 'endDate'
+    | 'category'
+    | 'weatherTemperatureCelsius'
+    | 'windSpeedKmh'
+    | 'coverImageUrl'
   >
 > & { status?: TripStatus };
 
@@ -53,6 +65,9 @@ export class TripsRepository {
         country: data.country,
         startDate: data.startDate,
         endDate: data.endDate,
+        category: data.category,
+        weatherTemperatureCelsius: data.weatherTemperatureCelsius,
+        windSpeedKmh: data.windSpeedKmh,
         coverImageUrl: data.coverImageUrl,
         status: TripStatus.PLANNED,
       },

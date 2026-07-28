@@ -9,12 +9,13 @@ import kotlinx.datetime.plus
 /**
  * Parses the same free-text Turkish due-date vocabulary Create Task's
  * `DueDateField` already accepted before this refactor — a bare time
- * ("14:00"), "Bugün"/"Yarın" with an optional time, a bare weekday name
- * ("Pazartesi"), or a day+Turkish-month with an optional year and time
- * ("12 Kasım", "12 Kasım 2025", "12 Kasım, 14:00"). Returns `null` for
- * anything else, so the caller can surface a field-level validation error
- * instead of ever constructing a [com.lifeos.app.features.planner.domain.model.Task]
- * from text nobody can be sure means what it looks like it means.
+ * ("14:00"), "Bugün"/"Yarın" with an optional time, "Gelecek hafta" with an
+ * optional time, a bare weekday name ("Pazartesi"), or a day+Turkish-month
+ * with an optional year and time ("12 Kasım", "12 Kasım 2025",
+ * "12 Kasım, 14:00"). Returns `null` for anything else, so the caller can
+ * surface a field-level validation error instead of ever constructing a
+ * [com.lifeos.app.features.planner.domain.model.Task] from text nobody can
+ * be sure means what it looks like it means.
  *
  * Returns a plain `Pair<LocalDate, LocalTime?>` rather than
  * [com.lifeos.app.features.planner.domain.model.TaskDueDate] — this parser
@@ -25,7 +26,11 @@ import kotlinx.datetime.plus
 object AppDateParser {
 
     fun parse(input: String, today: LocalDate = AppToday.date): Pair<LocalDate, LocalTime?>? {
-        val trimmed = input.trim()
+        // Mobile keyboards routinely substitute a non-breaking space (U+00A0) for a
+        // regular space after autocomplete/word-suggestion taps — normalizing every
+        // whitespace run to a single ASCII space up front keeps every token-splitting
+        // check below (day/month, "gelecek hafta") from silently failing on that input.
+        val trimmed = input.replace(WHITESPACE_REGEX, " ").trim()
         if (trimmed.isEmpty()) return null
 
         val commaIndex = trimmed.indexOf(',')
@@ -42,6 +47,7 @@ object AppDateParser {
         when (prefix.lowercase()) {
             TODAY_KEYWORD -> return today to time
             TOMORROW_KEYWORD -> return today.plus(1, DateTimeUnit.DAY) to time
+            NEXT_WEEK_KEYWORD -> return today.plus(7, DateTimeUnit.DAY) to time
         }
 
         AppDateFormatter.weekdayFromTurkishName(prefix)?.let { weekday ->
@@ -65,7 +71,7 @@ object AppDateParser {
     }
 
     private fun parseDayMonth(text: String, today: LocalDate): LocalDate? {
-        val parts = text.split(" ").filter { it.isNotBlank() }
+        val parts = text.split(WHITESPACE_REGEX).filter { it.isNotBlank() }
         if (parts.size !in 2..3) return null
 
         val day = parts[0].toIntOrNull() ?: return null
@@ -93,6 +99,8 @@ object AppDateParser {
     }
 
     private val TIME_REGEX = Regex("""(\d{1,2}):(\d{2})""")
+    private val WHITESPACE_REGEX = Regex("[\\s\u00A0]+")
     private const val TODAY_KEYWORD = "bugün"
     private const val TOMORROW_KEYWORD = "yarın"
+    private const val NEXT_WEEK_KEYWORD = "gelecek hafta"
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
+import { TripCategory } from '@prisma/client';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
 import { DATE_PATTERN } from '../../../common/utils/date-time.util';
 
 export class CreateTripDto {
@@ -39,6 +40,21 @@ export class CreateTripDto {
   endDate!: string;
 
   // No `status`: every trip is created `PLANNED` — see `TravelService.createTrip`.
+
+  @ApiPropertyOptional({ enum: TripCategory, description: 'Defaults to RELAX when omitted.' })
+  @IsOptional()
+  @IsEnum(TripCategory)
+  category?: TripCategory;
+
+  @ApiPropertyOptional({ description: 'Mock forecast temperature generated client-side, if any.' })
+  @IsOptional()
+  @IsInt()
+  weatherTemperatureCelsius?: number;
+
+  @ApiPropertyOptional({ description: 'Mock forecast wind speed generated client-side, if any.' })
+  @IsOptional()
+  @IsInt()
+  windSpeedKmh?: number;
 
   @ApiPropertyOptional({ description: 'External image URL — no upload/storage exists yet.' })
   @IsOptional()

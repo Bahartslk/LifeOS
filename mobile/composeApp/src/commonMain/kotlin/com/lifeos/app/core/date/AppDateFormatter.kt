@@ -50,13 +50,37 @@ object AppDateFormatter {
     private fun weekdayName(date: LocalDate): String = requireNotNull(TURKISH_WEEKDAY_NAMES[date.dayOfWeek])
 
     /** Case-insensitive reverse lookup for [AppDateParser] — "pazartesi" -> [DayOfWeek.MONDAY]. */
-    internal fun weekdayFromTurkishName(name: String): DayOfWeek? =
-        TURKISH_WEEKDAY_NAMES.entries.find { it.value.equals(name, ignoreCase = true) }?.key
+    internal fun weekdayFromTurkishName(name: String): DayOfWeek? {
+        val folded = foldTurkishCase(name)
+        return TURKISH_WEEKDAY_NAMES.entries.find { foldTurkishCase(it.value) == folded }?.key
+    }
 
     /** Case-insensitive reverse lookup for [AppDateParser] — "kasım" -> 11. */
     internal fun monthNumberFromTurkishName(name: String): Int? {
-        val index = TURKISH_MONTH_NAMES.indexOfFirst { it.equals(name, ignoreCase = true) }
+        val folded = foldTurkishCase(name)
+        val index = TURKISH_MONTH_NAMES.indexOfFirst { foldTurkishCase(it) == folded }
         return if (index == -1) null else index + 1
+    }
+
+    /**
+     * `String.equals(ignoreCase = true)` alone is not reliable for Turkish text:
+     * whether dotless "ı" and dotted "i" fold to the same letter case-insensitively
+     * depends on the platform's own Unicode case-folding tables, and Android's ART,
+     * a desktop JVM, and iOS don't all agree — so a real device can reject a
+     * correctly typed "Kasım" that passes in a JVM unit test. Folding the whole
+     * i/I/ı/İ cluster to one canonical character ourselves, instead of trusting
+     * the platform's `ignoreCase` comparison for it, makes matching behave the
+     * same everywhere this code runs.
+     */
+    private fun foldTurkishCase(text: String): String = buildString(text.length) {
+        for (ch in text) {
+            append(
+                when (ch) {
+                    'İ', 'I', 'ı' -> 'i'
+                    else -> ch.lowercaseChar()
+                }
+            )
+        }
     }
 
     private val TURKISH_MONTH_NAMES = listOf(

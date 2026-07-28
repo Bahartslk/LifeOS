@@ -37,6 +37,7 @@ class FakeTripGenerationDataSource {
 
     fun generateTripDetail(request: TripGenerationRequest, tripId: String): TripDetail {
         val style = request.travelStyle
+        val forecastTemperature = temperatureFor(request.destinationCity)
         val trip = Trip(
             id = tripId,
             destinationCity = request.destinationCity,
@@ -46,8 +47,9 @@ class FakeTripGenerationDataSource {
             coverImageUrl = COVER_IMAGE_URLS[request.destinationCity] ?: DEFAULT_COVER_IMAGE_URL,
             isAiOptimized = true,
             daysUntilStart = null,
-            weatherTemperatureCelsius = DEFAULT_FORECAST_TEMPERATURE,
+            weatherTemperatureCelsius = forecastTemperature,
             photoCount = null,
+            travelStyle = style,
         )
 
         return TripDetail(
@@ -56,7 +58,7 @@ class FakeTripGenerationDataSource {
                 highlightMessage = "${request.destinationCity} için ${style.description()} bir plan hazırladım. " +
                     "${request.companions.description()} seyahat ettiğinizi ve " +
                     "${request.transportation.description()} ile gideceğinizi göz önünde bulundurdum.",
-                weatherTemperatureCelsius = DEFAULT_FORECAST_TEMPERATURE,
+                weatherTemperatureCelsius = forecastTemperature,
                 windSpeedKmh = DEFAULT_WIND_SPEED_KMH,
                 travelTips = style.toTravelTips(request.destinationCity),
             ),
@@ -64,15 +66,27 @@ class FakeTripGenerationDataSource {
             flight = null,
             accommodation = request.accommodationPreference.toAccommodation(request.destinationCity),
             weatherForecast = listOf(
-                DailyWeather("Gün 1", DEFAULT_FORECAST_TEMPERATURE, WeatherCondition.SUNNY),
-                DailyWeather("Gün 2", DEFAULT_FORECAST_TEMPERATURE - 1, WeatherCondition.CLOUDY),
-                DailyWeather("Gün 3", DEFAULT_FORECAST_TEMPERATURE + 1, WeatherCondition.SUNNY),
+                DailyWeather("Gün 1", forecastTemperature, WeatherCondition.SUNNY),
+                DailyWeather("Gün 2", forecastTemperature - 1, WeatherCondition.CLOUDY),
+                DailyWeather("Gün 3", forecastTemperature + 1, WeatherCondition.SUNNY),
             ),
             budget = request.toBudgetSummary(),
             packingCategories = style.toPackingCategories(),
             documents = emptyList(),
             notes = request.additionalNotes,
         )
+    }
+
+    /**
+     * A fixed 20°C for every destination made the mock forecast an obvious
+     * tell that it wasn't actually tied to the selected city (Bug 4). With no
+     * real weather provider wired up yet, this derives a stable, plausible
+     * mock temperature from the destination name itself — same destination
+     * always yields the same value, different destinations plausibly differ.
+     */
+    private fun temperatureFor(destinationCity: String): Int {
+        val hash = destinationCity.trim().lowercase().sumOf { it.code }
+        return MIN_FORECAST_TEMPERATURE + (hash % TEMPERATURE_RANGE)
     }
 
     private fun TravelStyle.description(): String = when (this) {
@@ -265,7 +279,8 @@ class FakeTripGenerationDataSource {
     )
 
     private companion object {
-        const val DEFAULT_FORECAST_TEMPERATURE = 20
+        const val MIN_FORECAST_TEMPERATURE = 14
+        const val TEMPERATURE_RANGE = 15
         const val DEFAULT_WIND_SPEED_KMH = 8
         const val ACCOMMODATION_SHARE = 0.4
         const val TRANSPORTATION_SHARE = 0.25

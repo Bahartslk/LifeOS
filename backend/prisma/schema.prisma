@@ -281,6 +281,18 @@ enum TripStatus {
   CANCELLED
 }
 
+/// Mirrors mobile's `TravelStyle` (Create Travel (AI)'s "Seyahat Tarzı" chip
+/// row: Relax/Adventure/Luxury/Family/Business) — the trip's travel-style
+/// selection, persisted so it survives a save/reload instead of only ever
+/// existing in the AI-draft generation step.
+enum TripCategory {
+  RELAX
+  ADVENTURE
+  LUXURY
+  FAMILY
+  BUSINESS
+}
+
 /// Sprint 16.0's "suggested enum" — the category of one `ItineraryItem`.
 /// No fixed list was specified; this set covers the common trip-planning
 /// categories without reaching into the explicitly out-of-scope Bookings
@@ -348,6 +360,9 @@ model Trip {
   startDate      DateTime        @map("start_date") @db.Date
   endDate        DateTime        @map("end_date") @db.Date
   status         TripStatus      @default(PLANNED)
+  category       TripCategory    @default(RELAX)
+  weatherTemperatureCelsius Int? @map("weather_temperature_celsius")
+  windSpeedKmh   Int?            @map("wind_speed_kmh")
   coverImageUrl  String?         @map("cover_image_url")
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz

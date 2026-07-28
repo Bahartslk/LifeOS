@@ -10,10 +10,14 @@ import androidx.compose.material.icons.filled.FlightTakeoff
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lifeos.app.core.designsystem.components.AppSecondaryButton
 import com.lifeos.app.core.designsystem.components.AppSnackbarHost
 import com.lifeos.app.core.designsystem.components.EmptyState
@@ -41,6 +45,13 @@ import org.koin.compose.viewmodel.koinViewModel
  * either navigation or a snackbar, per the same Route/Screen split
  * established by Authentication and Home. Trip taps and the FAB both
  * navigate to real screens now (Travel Detail and Create Travel (AI)).
+ *
+ * The [DisposableEffect] below dispatches [TravelEvent.ScreenResumed]
+ * whenever this screen returns to the foreground (e.g. the user saves a new
+ * trip in Create Travel (AI), then navigates back here) — the exact same
+ * mechanism `PlannerRoute`/`HomeRoute` already use, for the same reason:
+ * [TravelViewModel] persists across navigation rather than being recreated,
+ * so without this, the list would keep showing its pre-save contents.
  */
 @Composable
 fun TravelRoute(
@@ -57,6 +68,17 @@ fun TravelRoute(
             TravelAction.NavigateToCreateTravel -> onNavigateToCreateTravel()
             is TravelAction.ShowMessage -> snackbarHostState.showSnackbar(action.message)
         }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.onEvent(TravelEvent.ScreenResumed)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     TravelScreen(

@@ -13,6 +13,12 @@ package com.lifeos.app.features.travel.domain.model
  * [TripStatus.PLANNED] trips (travel-list.png's countdown/weather chips);
  * [photoCount] applies to [TripStatus.COMPLETED] trips (the "428 Photos"
  * indicator on Memories cards).
+ *
+ * [travelStyle] is the "Seyahat Tarzı" chosen in Create Travel (AI) —
+ * persisted on the backend `trips.category` column so it survives a
+ * save/reload instead of only ever existing during draft generation.
+ * Defaulted to [TravelStyle.RELAX] so existing call sites that predate this
+ * field don't need updating.
  */
 data class Trip(
     val id: String,
@@ -25,6 +31,7 @@ data class Trip(
     val daysUntilStart: Int?,
     val weatherTemperatureCelsius: Int?,
     val photoCount: Int?,
+    val travelStyle: TravelStyle = TravelStyle.RELAX,
 )
 
 enum class TripStatus {

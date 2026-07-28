@@ -15,6 +15,14 @@ import kotlinx.coroutines.launch
  * [TravelEvent.CreateTripClicked] now navigates to the real Create Travel
  * (AI) screen (this sprint's feature) — no more "coming soon" message for
  * either.
+ *
+ * [TravelEvent.ScreenResumed] is dispatched by `TravelRoute`'s
+ * `DisposableEffect` on `ON_RESUME` — the exact same mechanism
+ * [com.lifeos.app.features.planner.presentation.PlannerViewModel] already
+ * uses: this ViewModel persists across navigation (it's tied to the Travel
+ * tab's back-stack entry, not to Create Travel/Trip Detail), so without
+ * this, saving a new trip and navigating back here would keep showing the
+ * list as it was before that trip existed until the process restarted.
  */
 class TravelViewModel(
     private val getTravelList: GetTravelListUseCase,
@@ -32,6 +40,7 @@ class TravelViewModel(
 
     fun onEvent(event: TravelEvent) {
         when (event) {
+            TravelEvent.ScreenResumed -> loadTravelList(showLoading = false)
             TravelEvent.RetryClicked -> loadTravelList()
             TravelEvent.SearchIconClicked -> toggleSearchBar()
             TravelEvent.FilterIconClicked -> toggleFilterRow()
@@ -56,9 +65,9 @@ class TravelViewModel(
         _uiState.value = _uiState.value.copy(isFilterRowVisible = !_uiState.value.isFilterRowVisible)
     }
 
-    private fun loadTravelList() {
+    private fun loadTravelList(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            _uiState.value = _uiState.value.copy(isLoading = showLoading, errorMessage = null)
             getTravelList()
                 .onSuccess { data ->
                     _uiState.value = _uiState.value.copy(isLoading = false, data = data)

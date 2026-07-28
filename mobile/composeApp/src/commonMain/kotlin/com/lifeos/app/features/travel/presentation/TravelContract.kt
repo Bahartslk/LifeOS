@@ -30,6 +30,8 @@ enum class TravelFilter {
 }
 
 sealed interface TravelEvent {
+    /** Dispatched by `TravelRoute`'s `DisposableEffect` on `ON_RESUME` — see [TravelViewModel]'s KDoc. */
+    data object ScreenResumed : TravelEvent
     data object RetryClicked : TravelEvent
     data object SearchIconClicked : TravelEvent
     data object FilterIconClicked : TravelEvent

@@ -14,6 +14,7 @@ import com.lifeos.app.features.travel.domain.model.ItineraryActivity
 import com.lifeos.app.features.travel.domain.model.ItineraryDay
 import com.lifeos.app.features.travel.domain.model.TravelListData
 import com.lifeos.app.features.travel.domain.model.TravelStatistics
+import com.lifeos.app.features.travel.domain.model.TravelStyle
 import com.lifeos.app.features.travel.domain.model.Trip
 import com.lifeos.app.features.travel.domain.model.TripDetail
 import com.lifeos.app.features.travel.domain.model.TripStatus
@@ -25,8 +26,10 @@ import kotlinx.datetime.daysUntil
  * and the same convention `features/auth/data/mapper/AuthMappers.kt` /
  * `features/planner/data/mapper/PlannerMappers.kt` already established.
  *
- * The backend's `Trip` has no `isAiOptimized`/weather/photo-count columns,
- * and no `AiTripSummary`/`BudgetSummary`/weather-forecast/packing/documents
+ * The backend's `Trip` persists the mock forecast generated at Create Travel
+ * (AI) time (`weatherTemperatureCelsius`/`windSpeedKmh`) so it survives a
+ * save/reload, but has no `isAiOptimized`/photo-count columns and no
+ * `AiTripSummary` text/`BudgetSummary`/weather-forecast-list/packing/documents
  * concept at all (mobile-only, currently AI-generated-only content — see
  * this iteration's approved mismatch report); every one of those maps to a
  * neutral default (`false`, `null`, `0`, or an empty list) here. No fake
@@ -46,8 +49,9 @@ fun TripDto.toDomain(): Trip {
         coverImageUrl = coverImageUrl,
         isAiOptimized = false,
         daysUntilStart = if (statusEnum == TripStatus.PLANNED && daysUntilStart >= 0) daysUntilStart else null,
-        weatherTemperatureCelsius = null,
+        weatherTemperatureCelsius = weatherTemperatureCelsius,
         photoCount = null,
+        travelStyle = TravelStyle.valueOf(category),
     )
 }
 
@@ -117,7 +121,11 @@ fun TripDto.toTripDetail(itineraryItems: List<ItineraryItemDto>): TripDetail {
     val accommodationItem = itineraryItems.firstOrNull { it.type == "ACCOMMODATION" }
     return TripDetail(
         trip = toDomain(),
-        aiSummary = AiTripSummary(highlightMessage = "", weatherTemperatureCelsius = 0, windSpeedKmh = 0),
+        aiSummary = AiTripSummary(
+            highlightMessage = "",
+            weatherTemperatureCelsius = weatherTemperatureCelsius ?: 0,
+            windSpeedKmh = windSpeedKmh ?: 0,
+        ),
         itinerary = itineraryItems.toItineraryDays(),
         flight = null,
         accommodation = accommodationItem?.let {
@@ -177,6 +185,9 @@ fun TripDetail.toCreateDtoOrNull(): CreateTripRequestDto? {
         country = trip.destinationCountry,
         startDate = startDate.toString(),
         endDate = endDate.toString(),
+        category = trip.travelStyle.name,
+        weatherTemperatureCelsius = trip.weatherTemperatureCelsius,
+        windSpeedKmh = aiSummary.windSpeedKmh,
         coverImageUrl = trip.coverImageUrl,
     )
 }
