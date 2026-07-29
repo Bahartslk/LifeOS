@@ -27,6 +27,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Mirrors the mobile client's `com.lifeos.app.features.planner.domain.model.TaskCategory`
+/// enum exactly (same tokens) — Sprint 15.0 added `category` on mobile as a
+/// client-only enrichment (no backend column); this enum and `Task.category`
+/// below are that column finally landing, so the field now persists and
+/// round-trips like `priority`/`status` instead of being reconstructed
+/// client-side.
+enum TaskCategory {
+  WORK
+  PERSONAL
+  HEALTH
+  TRAVEL
+  FINANCE
+}
+
 /// Core account record (docs/14-database-design.md#entities, FR-AUTH-01,
 /// FR-PROFILE-01). `trips`, `task_lists`, `tasks`, and `ai_conversations`
 /// are added by their owning feature module's sprint, each adding its own
@@ -225,11 +239,11 @@ model TaskList {
 /// narrower than mobile's full `Task`: mobile's own `Task.kt` doc comment
 /// already describes `category`/`tags`/`hasReminder`/`estimatedDurationLabel`
 /// as "client-only enrichment" with "adding columns for these later [as] an
-/// additive, non-breaking migration" — i.e. mobile's own design already
-/// anticipated this backend shipping without them first. `notes`/subtasks/
-/// attachments/activity (mobile's `TaskDetail`) are explicitly "UI only, no
-/// real persistence" per that model's own doc comments, so none of them are
-/// here either.
+/// additive, non-breaking migration" — `category` is that migration,
+/// landing below; `tags`/`hasReminder`/`estimatedDurationLabel` remain
+/// client-only for now. `notes`/subtasks/attachments/activity (mobile's
+/// `TaskDetail`) are explicitly "UI only, no real persistence" per that
+/// model's own doc comments, so none of them are here either.
 ///
 /// `dueDate`/`dueTime` are two columns, not
 /// docs/14-database-design.md's single `due_date timestamptz` — a
@@ -252,6 +266,7 @@ model Task {
   dueDate       DateTime       @map("due_date") @db.Date
   dueTime       DateTime?      @map("due_time") @db.Time
   priority      TaskPriority
+  category      TaskCategory   @default(PERSONAL)
   status        TaskStatus     @default(TODO)
   source        TaskSource     @default(PLANNER)
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz

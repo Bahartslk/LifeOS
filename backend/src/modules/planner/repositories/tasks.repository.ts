@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Task, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { Prisma, Task, TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface CreateTaskData {
@@ -9,13 +9,17 @@ export interface CreateTaskData {
   dueDate: Date;
   dueTime: Date | null;
   priority: TaskPriority;
+  category: TaskCategory;
   taskListId: string | null;
   /** Explicit, not defaulted here — `PlannerService.createTask` always passes `PLANNER`; `createIntegrationTask` passes whatever the calling feature module needs (e.g. `TRAVEL`). */
   source: TaskSource;
 }
 
 export type UpdateTaskData = Partial<
-  Pick<CreateTaskData, 'title' | 'description' | 'dueDate' | 'dueTime' | 'priority' | 'taskListId'>
+  Pick<
+    CreateTaskData,
+    'title' | 'description' | 'dueDate' | 'dueTime' | 'priority' | 'category' | 'taskListId'
+  >
 > & { status?: TaskStatus };
 
 export interface FindManyQuery {
@@ -55,6 +59,7 @@ export class TasksRepository {
         dueDate: data.dueDate,
         dueTime: data.dueTime,
         priority: data.priority,
+        category: data.category,
         taskListId: data.taskListId,
         status: TaskStatus.TODO,
         source: data.source,

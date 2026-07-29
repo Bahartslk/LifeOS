@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
 
 /** The only shape a `Task` is ever sent over the API — `userId`/`deletedAt` never leave the repository layer. */
 export class TaskResponseDto {
@@ -20,6 +20,9 @@ export class TaskResponseDto {
 
   @ApiProperty({ enum: TaskPriority })
   priority!: TaskPriority;
+
+  @ApiProperty({ enum: TaskCategory })
+  category!: TaskCategory;
 
   @ApiProperty({ enum: TaskStatus })
   status!: TaskStatus;

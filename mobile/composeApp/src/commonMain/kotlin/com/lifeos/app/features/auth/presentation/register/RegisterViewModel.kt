@@ -2,6 +2,7 @@ package com.lifeos.app.features.auth.presentation.register
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lifeos.app.features.auth.domain.model.EmailAlreadyRegisteredException
 import com.lifeos.app.features.auth.domain.usecase.RegisterUseCase
 import com.lifeos.app.features.auth.domain.validation.EmailValidator
 import com.lifeos.app.features.auth.domain.validation.NameValidator
@@ -17,15 +18,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Any registration failure is currently shown as "email already exists",
- * regardless of cause — true of every failure the former fake repository
- * could produce (its only case), and still true of the real
- * `AuthRepositoryImpl` today (a network error or 5xx now also lands here,
- * showing a misleading message). Introducing a domain-level sealed
- * `AuthError` type so this ViewModel can distinguish failure reasons
- * without depending on data-layer exception types is a real follow-up, not
- * part of this iteration's scope (ViewModels are unchanged by design — see
- * `AuthRepositoryImpl`'s own KDoc).
+ * Only a genuine [EmailAlreadyRegisteredException] (backend 409, per
+ * `AuthRepositoryImpl`) shows the "email already exists" message — any other
+ * failure (network unreachable, timeout, 5xx) shows a distinct, honest
+ * connection-error message instead. Previously every failure showed "email
+ * already exists" regardless of cause, which misreported an unreachable
+ * backend (e.g. a release build pointed at an unset/unreachable API host)
+ * as a duplicate-email conflict.
  */
 class RegisterViewModel(
     private val register: RegisterUseCase,
@@ -83,11 +82,14 @@ class RegisterViewModel(
                     _uiState.value = _uiState.value.copy(isLoading = false)
                     _actions.send(RegisterAction.NavigateToHome)
                 }
-                .onFailure {
-                    // The fake repository only ever produces EmailAlreadyRegisteredException
-                    // today. A real backend would surface distinct failure types here.
+                .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(isLoading = false)
-                    _actions.send(RegisterAction.ShowMessage(AuthStrings.REGISTER_EMAIL_ALREADY_EXISTS))
+                    val message = if (throwable is EmailAlreadyRegisteredException) {
+                        AuthStrings.REGISTER_EMAIL_ALREADY_EXISTS
+                    } else {
+                        AuthStrings.REGISTER_CONNECTION_ERROR
+                    }
+                    _actions.send(RegisterAction.ShowMessage(message))
                 }
         }
     }

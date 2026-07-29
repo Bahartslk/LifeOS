@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TaskPriority } from '@prisma/client';
+import { TaskCategory, TaskPriority } from '@prisma/client';
 import {
   IsEnum,
   IsNotEmpty,
@@ -43,6 +43,10 @@ export class CreateTaskDto {
   @ApiProperty({ enum: TaskPriority })
   @IsEnum(TaskPriority)
   priority!: TaskPriority;
+
+  @ApiProperty({ enum: TaskCategory })
+  @IsEnum(TaskCategory)
+  category!: TaskCategory;
 
   // No `source`: always server-assigned (`PLANNER`) — see `PlannerService.createTask`'s
   // doc comment for why a caller must never be able to set this itself.

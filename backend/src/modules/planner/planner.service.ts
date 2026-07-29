@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Task, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { Task, TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
 import { TaskListsRepository } from './repositories/task-lists.repository';
 import { TasksRepository } from './repositories/tasks.repository';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -47,6 +47,7 @@ export class PlannerService {
       dueDate: toDbDate(dto.dueDate),
       dueTime: dto.dueTime ? toDbTime(dto.dueTime) : null,
       priority: dto.priority,
+      category: dto.category,
       taskListId: dto.taskListId ?? null,
       source: TaskSource.PLANNER,
     });
@@ -80,6 +81,11 @@ export class PlannerService {
       dueDate: toDbDate(data.dueDate),
       dueTime: data.dueTime ? toDbTime(data.dueTime) : null,
       priority: data.priority,
+      // Not part of `CreateIntegrationTaskData`: no calling feature module
+      // (Travel's `ItineraryService`) has a category concept of its own to
+      // pass through yet, so an integration-created task gets the same
+      // neutral default a caller who picked nothing would.
+      category: TaskCategory.PERSONAL,
       taskListId: null,
       source: data.source,
     });
@@ -96,6 +102,7 @@ export class PlannerService {
       ...(dto.dueDate !== undefined && { dueDate: toDbDate(dto.dueDate) }),
       ...(dto.dueTime !== undefined && { dueTime: toDbTime(dto.dueTime) }),
       ...(dto.priority !== undefined && { priority: dto.priority }),
+      ...(dto.category !== undefined && { category: dto.category }),
       ...(dto.status !== undefined && { status: dto.status }),
       ...(dto.taskListId !== undefined && { taskListId: dto.taskListId }),
     });
@@ -250,6 +257,7 @@ export class PlannerService {
       dueDate: fromDbDate(task.dueDate),
       dueTime: fromDbTime(task.dueTime),
       priority: task.priority,
+      category: task.category,
       status: task.status,
       source: task.source,
       taskListId: task.taskListId,

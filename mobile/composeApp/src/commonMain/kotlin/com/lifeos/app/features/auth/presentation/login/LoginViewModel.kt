@@ -2,6 +2,7 @@ package com.lifeos.app.features.auth.presentation.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lifeos.app.features.auth.domain.model.InvalidCredentialsException
 import com.lifeos.app.features.auth.domain.usecase.LoginUseCase
 import com.lifeos.app.features.auth.domain.validation.EmailValidator
 import com.lifeos.app.features.auth.domain.validation.PasswordValidator
@@ -59,14 +60,17 @@ class LoginViewModel(
                     _uiState.value = _uiState.value.copy(isLoading = false)
                     _actions.send(LoginAction.NavigateToHome)
                 }
-                .onFailure {
-                    // AuthRepositoryImpl maps a 401 to InvalidCredentialsException,
-                    // but any other failure (network error, timeout, 5xx) also lands
-                    // here today and shows the same message — distinguishing failure
-                    // types (rate limited, account locked, offline, etc.) is a real
-                    // follow-up, not part of this iteration's scope.
+                .onFailure { throwable ->
+                    // AuthRepositoryImpl maps a 401 to InvalidCredentialsException;
+                    // any other failure (network unreachable, timeout, 5xx) gets its
+                    // own honest message instead of also claiming bad credentials.
                     _uiState.value = _uiState.value.copy(isLoading = false)
-                    _actions.send(LoginAction.ShowMessage(AuthStrings.LOGIN_INVALID_CREDENTIALS))
+                    val message = if (throwable is InvalidCredentialsException) {
+                        AuthStrings.LOGIN_INVALID_CREDENTIALS
+                    } else {
+                        AuthStrings.LOGIN_CONNECTION_ERROR
+                    }
+                    _actions.send(LoginAction.ShowMessage(message))
                 }
         }
     }

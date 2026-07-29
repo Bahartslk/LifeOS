@@ -57,6 +57,7 @@ internal object AuthStrings {
     const val LOGIN_CREATE_ACCOUNT = "Hesap Oluştur"
     const val LOGIN_COMING_SOON = "Bu özellik yakında kullanıma sunulacak."
     const val LOGIN_INVALID_CREDENTIALS = "E-posta veya şifre hatalı."
+    const val LOGIN_CONNECTION_ERROR = "Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin."
 
     // Register
     const val REGISTER_TITLE = "Hesap Oluştur"
@@ -69,6 +70,7 @@ internal object AuthStrings {
     const val REGISTER_HAVE_ACCOUNT = "Zaten hesabınız var mı?"
     const val REGISTER_LOGIN = "Giriş Yap"
     const val REGISTER_EMAIL_ALREADY_EXISTS = "Bu e-posta adresi zaten kayıtlı."
+    const val REGISTER_CONNECTION_ERROR = "Hesap oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin."
 
     // Forgot Password
     const val FORGOT_PASSWORD_TITLE = "Şifrenizi mi unuttunuz?"
