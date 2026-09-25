@@ -47,12 +47,14 @@ class AuthRepositoryImpl(
             tokenLocalDataSource.saveSession(session)
             Result.success(session)
         } catch (e: ApiException) {
+            logFailure("login", e)
             if (e.statusCode == HttpStatusCode.Unauthorized.value) {
                 Result.failure(InvalidCredentialsException())
             } else {
                 Result.failure(e)
             }
         } catch (e: Exception) {
+            logFailure("login", e)
             Result.failure(e)
         }
     }
@@ -71,12 +73,14 @@ class AuthRepositoryImpl(
             tokenLocalDataSource.saveSession(session)
             Result.success(session)
         } catch (e: ApiException) {
+            logFailure("register", e)
             if (e.statusCode == HttpStatusCode.Conflict.value) {
                 Result.failure(EmailAlreadyRegisteredException())
             } else {
                 Result.failure(e)
             }
         } catch (e: Exception) {
+            logFailure("register", e)
             Result.failure(e)
         }
     }
@@ -105,6 +109,21 @@ class AuthRepositoryImpl(
             runCatching { remoteDataSource.logout(session.accessToken, session.refreshToken) }
         }
         tokenLocalDataSource.clearSession()
+    }
+
+    /**
+     * The two catch blocks above previously discarded the caught exception
+     * entirely once it didn't match the status code they special-case —
+     * `Result.failure(e)` still carries it to the ViewModel, but every
+     * ViewModel today collapses any non-domain exception to the same generic
+     * "check your connection" message (per their own comments), so the real
+     * cause — a 400 from a body the backend rejected, a DNS failure, a
+     * timeout, a TLS error, anything — was never visible anywhere. Printing
+     * it here means it shows up in `adb logcat` even though the UI still only
+     * shows the generic message.
+     */
+    private fun logFailure(operation: String, e: Throwable) {
+        println("[AuthRepositoryImpl] $operation failed: ${e::class.simpleName}: ${e.message}\n${e.stackTraceToString()}")
     }
 
     private companion object {

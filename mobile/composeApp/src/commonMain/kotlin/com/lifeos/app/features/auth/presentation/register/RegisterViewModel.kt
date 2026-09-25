@@ -83,6 +83,13 @@ class RegisterViewModel(
                     _actions.send(RegisterAction.NavigateToHome)
                 }
                 .onFailure { throwable ->
+                    // Railway's runtime logs only show what NestJS's own
+                    // Logger.log calls print — there's no request-logging
+                    // middleware — so a request that never left the device
+                    // and one the backend received but rejected both look
+                    // identical there. This line, visible in `adb logcat`,
+                    // is what actually tells them apart.
+                    println("[RegisterViewModel] register failed: ${throwable::class.simpleName}: ${throwable.message}")
                     _uiState.value = _uiState.value.copy(isLoading = false)
                     val message = if (throwable is EmailAlreadyRegisteredException) {
                         AuthStrings.REGISTER_EMAIL_ALREADY_EXISTS

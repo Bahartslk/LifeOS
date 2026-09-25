@@ -29,8 +29,8 @@ How to deploy the backend to Railway and build a release APK that works on any A
 |---|---|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (variable reference to the Postgres plugin) |
-| `JWT_ACCESS_TOKEN_PRIVATE_KEY` | Paste the PEM with real line breaks (multi-line value) — same format as `backend/.env` locally, **not** `\n`-escaped. Railway's variable editor accepts multi-line text directly. |
-| `JWT_ACCESS_TOKEN_PUBLIC_KEY` | Same — paste the matching public key PEM. |
+| `JWT_ACCESS_TOKEN_PRIVATE_KEY` | Paste the PEM with real line breaks (multi-line value), **no surrounding quotes** and **not** `\n`-escaped — nothing in the code unescapes `\n`, so an escaped value hands `JwtModule` a string RSA can't parse. Railway's variable editor accepts multi-line text directly. |
+| `JWT_ACCESS_TOKEN_PUBLIC_KEY` | Same — paste the matching public key PEM, real line breaks, no quotes. |
 | `JWT_ACCESS_TOKEN_TTL` | `15m` (or your preferred value) |
 | `JWT_REFRESH_TOKEN_TTL` | `30d` |
 | `BCRYPT_SALT_ROUNDS` | `12` |
