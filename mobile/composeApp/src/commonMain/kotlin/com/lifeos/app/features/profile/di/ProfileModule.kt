@@ -30,6 +30,7 @@ val profileModule: Module = module {
             getSession = get(),
             observeThemeMode = get(),
             setThemeMode = get(),
+            logout = get(),
         )
     }
 }

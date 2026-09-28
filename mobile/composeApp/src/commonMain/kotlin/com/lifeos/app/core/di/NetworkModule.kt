@@ -1,6 +1,7 @@
 package com.lifeos.app.core.di
 
 import com.lifeos.app.core.network.AuthTokenProvider
+import com.lifeos.app.core.network.BearerTokenCache
 import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.core.network.NoOpAuthTokenProvider
 import io.ktor.client.HttpClient
@@ -26,4 +27,6 @@ val networkModule: Module = module {
             tokenProvider = get(),
         )
     }
+
+    single { BearerTokenCache(httpClient = get()) }
 }

@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.Flow
  *
  * Every other row on the Profile screen (Edit Profile, Security, Change
  * Password, Language, AI/Travel Preferences, Notification/Reminder
- * settings, Privacy Policy, Terms of Service, Logout) is a placeholder
+ * settings, Privacy Policy, Terms of Service) is a placeholder
  * action with nothing to persist — see [com.lifeos.app.features.profile.presentation.ProfileViewModel]'s
  * KDoc for why none of them need a repository method here, per this
  * sprint's "avoid unnecessary repositories" scope.

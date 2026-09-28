@@ -15,6 +15,7 @@ data class ProfileUiState(
     val userEmail: String = "",
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isLogoutConfirmationVisible: Boolean = false,
+    val isLoggingOut: Boolean = false,
     val errorMessage: String? = null,
 )
 
@@ -38,4 +39,5 @@ sealed interface ProfileEvent {
 
 sealed interface ProfileAction {
     data class ShowMessage(val message: String) : ProfileAction
+    data object NavigateToLogin : ProfileAction
 }

@@ -1,6 +1,7 @@
 package com.lifeos.app.features.auth.data.repository
 
 import com.lifeos.app.core.network.ApiException
+import com.lifeos.app.core.network.BearerTokenCache
 import com.lifeos.app.features.auth.data.local.AuthTokenLocalDataSource
 import com.lifeos.app.features.auth.data.remote.AuthRemoteDataSource
 import com.lifeos.app.features.auth.domain.model.AuthSession
@@ -34,6 +35,7 @@ import kotlinx.coroutines.delay
 class AuthRepositoryImpl(
     private val remoteDataSource: AuthRemoteDataSource,
     private val tokenLocalDataSource: AuthTokenLocalDataSource,
+    private val bearerTokenCache: BearerTokenCache,
 ) : AuthRepository {
 
     override suspend fun login(email: String, password: String): Result<AuthSession> {
@@ -105,6 +107,7 @@ class AuthRepositoryImpl(
             runCatching { remoteDataSource.logout(session.accessToken, session.refreshToken) }
         }
         tokenLocalDataSource.clearSession()
+        bearerTokenCache.clear()
     }
 
     private companion object {

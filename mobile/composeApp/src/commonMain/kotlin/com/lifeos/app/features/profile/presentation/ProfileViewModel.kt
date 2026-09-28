@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifeos.app.core.storage.ThemeMode
 import com.lifeos.app.features.auth.domain.usecase.GetSessionUseCase
+import com.lifeos.app.features.auth.domain.usecase.LogoutUseCase
 import com.lifeos.app.features.profile.domain.usecase.ObserveThemeModeUseCase
 import com.lifeos.app.features.profile.domain.usecase.SetThemeModeUseCase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,16 +32,17 @@ import kotlinx.coroutines.launch
  * [ProfileEvent.PrivacyPolicyClicked], [ProfileEvent.TermsOfServiceClicked])
  * resolves to a "coming soon" message — the same graceful-degradation
  * pattern every other not-yet-implemented action in this app already uses.
- * [ProfileEvent.LogoutClicked] shows a real [com.lifeos.app.core.designsystem.components.ConfirmationDialog]
- * (this screen should *feel* complete), but confirming it never calls
- * [com.lifeos.app.features.auth.domain.repository.AuthRepository.clearSession]
- * or navigates away — "Do NOT implement real logout" is this sprint's
- * explicit, repeated instruction.
+ * [ProfileEvent.LogoutClicked] shows a [com.lifeos.app.core.designsystem.components.ConfirmationDialog];
+ * confirming it runs [LogoutUseCase] and then emits [ProfileAction.NavigateToLogin].
+ * Server-side revocation inside [LogoutUseCase] is best-effort, so an
+ * unreachable backend still signs the user out locally; only a failure to
+ * clear the local session keeps the user here, with an error message.
  */
 class ProfileViewModel(
     private val getSession: GetSessionUseCase,
     private val observeThemeMode: ObserveThemeModeUseCase,
     private val setThemeMode: SetThemeModeUseCase,
+    private val logout: LogoutUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -108,8 +111,20 @@ class ProfileViewModel(
     }
 
     private fun confirmLogout() {
-        _uiState.value = _uiState.value.copy(isLogoutConfirmationVisible = false)
-        showMessage(ProfileStrings.LOGOUT_COMING_SOON)
+        if (_uiState.value.isLoggingOut) return
+        _uiState.value = _uiState.value.copy(isLogoutConfirmationVisible = false, isLoggingOut = true)
+        viewModelScope.launch {
+            try {
+                logout()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoggingOut = false)
+                _actions.send(ProfileAction.ShowMessage(ProfileStrings.LOGOUT_ERROR_MESSAGE))
+                return@launch
+            }
+            _actions.send(ProfileAction.NavigateToLogin)
+        }
     }
 
     private fun showMessage(message: String) {

@@ -32,10 +32,12 @@ private val mainTabs = listOf(
  * nested [NavHost], independent of the outer auth→main transition — the
  * standard Compose Navigation pattern for a bottom-nav-owned back stack.
  * Reuses [AppBottomNavigation] from the Design System; tab content is
- * registered per [mainGraph].
+ * registered per [mainGraph]. [onLoggedOut] is raised by Profile's logout
+ * and handled by the outer [LifeOSNavHost], which owns the auth→main
+ * transition this nested host cannot see.
  */
 @Composable
-fun MainScreen() {
+fun MainScreen(onLoggedOut: () -> Unit) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -59,7 +61,7 @@ fun MainScreen() {
             startDestination = Destination.Dashboard.route,
             modifier = Modifier.padding(paddingValues),
         ) {
-            mainGraph(navController)
+            mainGraph(navController, onLoggedOut = onLoggedOut)
         }
     }
 }

@@ -58,7 +58,8 @@ internal object ProfileStrings {
     const val LOGOUT_CONFIRMATION_MESSAGE = "Hesabınızdan çıkış yapmak istediğinizden emin misiniz?"
     const val LOGOUT_CONFIRMATION_CONFIRM = "Çıkış Yap"
     const val LOGOUT_CONFIRMATION_DISMISS = "Vazgeç"
-    const val LOGOUT_COMING_SOON = "Çıkış yapma özelliği yakında kullanıma sunulacak."
+    const val LOGOUT_IN_PROGRESS = "Çıkış yapılıyor..."
+    const val LOGOUT_ERROR_MESSAGE = "Çıkış yapılamadı. Lütfen tekrar deneyin."
 
     // Screen states
     const val LOAD_ERROR_MESSAGE = "Profil yüklenemedi. Lütfen tekrar deneyin."
