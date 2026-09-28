@@ -33,7 +33,16 @@ fun LifeOSNavHost() {
         authGraph(navController)
 
         composable(Destination.Dashboard.route) {
-            MainScreen()
+            MainScreen(
+                // Clears the whole back stack (the main graph and every
+                // ViewModel scoped to it) so system back from Login can
+                // never return to an authenticated screen.
+                onLoggedOut = {
+                    navController.navigate(Destination.SignIn.route) {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                },
+            )
         }
     }
 }

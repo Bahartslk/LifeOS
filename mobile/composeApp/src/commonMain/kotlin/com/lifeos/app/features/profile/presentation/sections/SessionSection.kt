@@ -25,6 +25,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
  */
 @Composable
 fun SessionSection(
+    isLoggingOut: Boolean,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -32,8 +33,9 @@ fun SessionSection(
         SectionHeader(title = ProfileStrings.SESSION_TITLE)
         Spacer(modifier = Modifier.height(LifeOSSpacing.md))
         AppOutlinedButton(
-            text = ProfileStrings.LOGOUT_ACTION,
+            text = if (isLoggingOut) ProfileStrings.LOGOUT_IN_PROGRESS else ProfileStrings.LOGOUT_ACTION,
             onClick = onLogoutClick,
+            enabled = !isLoggingOut,
             leadingIcon = Icons.AutoMirrored.Filled.Logout,
         )
     }
@@ -43,6 +45,6 @@ fun SessionSection(
 @Composable
 private fun SessionSectionPreview() {
     LifeOSTheme {
-        SessionSection(onLogoutClick = {})
+        SessionSection(isLoggingOut = false, onLogoutClick = {})
     }
 }

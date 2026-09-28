@@ -55,7 +55,9 @@ val authModule: Module = module {
     single { AuthRemoteDataSource(httpClient = get(named("unauthenticated"))) }
 
     // Repositories
-    single<AuthRepository> { AuthRepositoryImpl(remoteDataSource = get(), tokenLocalDataSource = get()) }
+    single<AuthRepository> {
+        AuthRepositoryImpl(remoteDataSource = get(), tokenLocalDataSource = get(), bearerTokenCache = get())
+    }
     single<OnboardingRepository> { OnboardingRepositoryImpl(localDataSource = get()) }
 
     // The real AuthTokenProvider — overrides NetworkModule's NoOpAuthTokenProvider.

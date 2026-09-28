@@ -39,6 +39,7 @@ import org.koin.compose.viewmodel.koinViewModel
  */
 @Composable
 fun ProfileRoute(
+    onLoggedOut: () -> Unit,
     viewModel: ProfileViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -47,6 +48,7 @@ fun ProfileRoute(
     CollectActions(viewModel.actions) { action ->
         when (action) {
             is ProfileAction.ShowMessage -> snackbarHostState.showSnackbar(action.message)
+            ProfileAction.NavigateToLogin -> onLoggedOut()
         }
     }
 
@@ -143,7 +145,10 @@ private fun ProfileContent(
             )
         }
         item {
-            SessionSection(onLogoutClick = { onEvent(ProfileEvent.LogoutClicked) })
+            SessionSection(
+                isLoggingOut = uiState.isLoggingOut,
+                onLogoutClick = { onEvent(ProfileEvent.LogoutClicked) },
+            )
         }
     }
 }

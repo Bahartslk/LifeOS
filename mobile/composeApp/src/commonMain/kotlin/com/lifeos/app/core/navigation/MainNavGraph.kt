@@ -34,7 +34,10 @@ import com.lifeos.app.features.travel.presentation.TravelRoute
  * "Seyahat Oluştur" from Home lands exactly where tapping the Travel tab
  * would.
  */
-fun NavGraphBuilder.mainGraph(navController: NavHostController) {
+fun NavGraphBuilder.mainGraph(
+    navController: NavHostController,
+    onLoggedOut: () -> Unit,
+) {
     composable(Destination.Dashboard.route) {
         HomeRoute(
             onNavigateToTravel = { navController.navigateToMainTab(Destination.Travel.route) },
@@ -121,7 +124,7 @@ fun NavGraphBuilder.mainGraph(navController: NavHostController) {
             onNavigateToCreateTask = { navController.navigate(Destination.CreateTask.route) },
         )
     }
-    composable(Destination.Profile.route) { ProfileRoute() }
+    composable(Destination.Profile.route) { ProfileRoute(onLoggedOut = onLoggedOut) }
 }
 
 /**
