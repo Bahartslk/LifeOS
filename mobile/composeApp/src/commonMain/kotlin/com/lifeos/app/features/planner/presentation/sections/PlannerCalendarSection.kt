@@ -42,11 +42,12 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
  * since a calendar widget with missing weeks would be a functional defect,
  * not a faithful reproduction. [calendar] is built as a complete,
  * calendrically-correct month grid instead (see
- * [com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource]),
- * and both of those visible weeks match this grid exactly.
+ * [com.lifeos.app.features.planner.domain.util.CalendarMonthBuilder]); its
+ * per-day task counts come from the user's real tasks for the current month
+ * (`PlannerRepositoryImpl.getDashboard`), or stay 0 if that request failed.
  *
- * This widget stays read-only and October-only — it never re-fetches a
- * different month itself. [onPreviousMonthClick]/[onNextMonthClick] instead
+ * This widget stays read-only and always shows the current month — it never
+ * re-fetches a different month itself. [onPreviousMonthClick]/[onNextMonthClick] instead
  * open the full Planner Calendar screen (`CalendarRoute`), where
  * [MonthSelector] and [CalendarGrid] page real months — tapping either
  * chevron here is simply the fastest way in, per this app's "reuse before

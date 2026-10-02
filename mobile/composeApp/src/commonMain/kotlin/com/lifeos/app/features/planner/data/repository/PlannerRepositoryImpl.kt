@@ -1,7 +1,8 @@
 package com.lifeos.app.features.planner.data.repository
 
+import com.lifeos.app.core.date.AppToday
 import com.lifeos.app.core.network.ApiException
-import com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource
+import com.lifeos.app.features.planner.data.dto.TaskDto
 import com.lifeos.app.features.planner.data.mapper.toDomain
 import com.lifeos.app.features.planner.data.mapper.toDto
 import com.lifeos.app.features.planner.data.remote.PlannerRemoteDataSource
@@ -13,40 +14,56 @@ import com.lifeos.app.features.planner.domain.model.TaskDetail
 import com.lifeos.app.features.planner.domain.model.TaskNotFoundException
 import com.lifeos.app.features.planner.domain.model.TaskStatus
 import com.lifeos.app.features.planner.domain.repository.PlannerRepository
+import com.lifeos.app.features.planner.domain.util.CalendarMonthBuilder
 import io.ktor.http.HttpStatusCode
-import kotlinx.datetime.Clock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.todayIn
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 
 /**
- * Real implementation of [PlannerRepository], backed by the real
- * `/api/v1/planner` endpoints via [PlannerRemoteDataSource] —
- * replaces the former `FakePlannerRepository` per that class's own
- * "Replacing this with the real backend" plan. [PlannerRepository]'s
+ * Real implementation of [PlannerRepository], backed entirely by the real
+ * `/api/v1/planner` endpoints via [PlannerRemoteDataSource]. [PlannerRepository]'s
  * signature, and every use case/ViewModel that depends on it, are exactly
  * as they were.
  *
- * [getCalendarMonth]/[getTasksForDay] (Planner Calendar) and
- * [toggleSubtaskCompletion] stay backed by [fakeDataSource], unchanged: the
- * backend has no calendar-month endpoint and no subtask model at all, and
- * neither is part of this iteration's required functionality — see the
- * approved mismatch report for the full reasoning.
+ * Planner Calendar ([getCalendarMonth]/[getTasksForDay], and the dashboard's
+ * own month strip) has no dedicated backend endpoint: it reads the user's
+ * real tasks through `GET /planner/tasks?dueAfter=&dueBefore=` (paged, see
+ * [fetchTasksInRange]) and lays them out with [CalendarMonthBuilder].
+ *
+ * [toggleSubtaskCompletion] has no backend counterpart (no subtask model
+ * exists server-side) — it fails explicitly rather than faking success.
  */
 class PlannerRepositoryImpl(
     private val remoteDataSource: PlannerRemoteDataSource,
-    private val fakeDataSource: FakePlannerDataSource,
 ) : PlannerRepository {
 
+    /**
+     * The dashboard and the current month's task range are fetched in
+     * parallel. Only the dashboard request is required: if the range request
+     * fails, the dashboard is still returned with every calendar day's
+     * `taskCount` left at 0, rather than failing the whole screen over its
+     * smallest widget.
+     */
     override suspend fun getDashboard(): Result<PlannerDashboard> = try {
-        val dto = remoteDataSource.getDashboard()
-        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-        // Reuses the fake data source's pure calendar-grid arithmetic (no
-        // backend endpoint exists for it) — its task-count-per-day still
-        // reflects the fake data source's own fixed task set, not the real
-        // backend tasks above; a known, approved limitation.
-        val calendar = fakeDataSource.calendarMonth(today.year, today.monthNumber)
-        Result.success(dto.toDomain(date = today, calendar = calendar))
+        val today = AppToday.date
+        coroutineScope {
+            val monthTasks = async { monthTasksOrNull(today.year, today.monthNumber) }
+            val dto = remoteDataSource.getDashboard()
+            val calendar = CalendarMonthBuilder.build(
+                year = today.year,
+                month = today.monthNumber,
+                tasks = monthTasks.await().orEmpty(),
+                today = today,
+            )
+            Result.success(dto.toDomain(date = today, calendar = calendar))
+        }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -88,10 +105,13 @@ class PlannerRepositoryImpl(
         Result.failure(e)
     }
 
-    override suspend fun toggleSubtaskCompletion(taskId: String, subtaskId: String): Result<Unit> {
-        fakeDataSource.toggleSubtaskCompletion(taskId, subtaskId)
-        return Result.success(Unit)
-    }
+    /**
+     * Never reachable from real data today — [getTaskDetail] always returns
+     * an empty subtask list — but fails explicitly, with no network call,
+     * instead of reporting a success that changed nothing.
+     */
+    override suspend fun toggleSubtaskCompletion(taskId: String, subtaskId: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("Subtasks are not supported by the backend yet."))
 
     override suspend fun deleteTask(taskId: String): Result<Unit> = try {
         remoteDataSource.deleteTask(taskId)
@@ -109,13 +129,75 @@ class PlannerRepositoryImpl(
         Result.failure(e)
     }
 
-    override suspend fun getCalendarMonth(year: Int, month: Int): Result<PlannerCalendarMonth> =
-        Result.success(fakeDataSource.calendarMonth(year, month))
+    override suspend fun getCalendarMonth(year: Int, month: Int): Result<PlannerCalendarMonth> = try {
+        val tasks = fetchMonthTasks(year, month)
+        Result.success(CalendarMonthBuilder.build(year = year, month = month, tasks = tasks))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
-    override suspend fun getTasksForDay(date: LocalDate): Result<List<Task>> =
-        Result.success(fakeDataSource.tasksForDay(date))
+    /** Ordered by due time, untimed tasks last — the backend orders same-day tasks only by id. */
+    override suspend fun getTasksForDay(date: LocalDate): Result<List<Task>> = try {
+        val tasks = fetchTasksInRange(dueAfter = date, dueBefore = date).map { it.toDomain() }
+        Result.success(tasks.sortedWith(compareBy(nullsLast()) { it.dueDate.time }))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    private suspend fun fetchMonthTasks(year: Int, month: Int): List<Task> {
+        val firstOfMonth = LocalDate(year, month, 1)
+        val lastOfMonth = firstOfMonth.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
+        return fetchTasksInRange(dueAfter = firstOfMonth, dueBefore = lastOfMonth).map { it.toDomain() }
+    }
+
+    /** [getDashboard]'s best-effort month fetch: any failure (HTTP, network, mapping) means "no counts", never a failed dashboard. */
+    private suspend fun monthTasksOrNull(year: Int, month: Int): List<Task>? = try {
+        fetchMonthTasks(year, month)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Every task due within [dueAfter]..[dueBefore] (both inclusive), following
+     * `meta.nextCursor` until `hasMore` is false. Stops early — keeping what
+     * it already has — if the backend repeats a cursor, reports `hasMore`
+     * without a cursor, or [MAX_PAGES] is reached, so a misbehaving response
+     * can never loop forever. Throws on the first failed page.
+     */
+    private suspend fun fetchTasksInRange(dueAfter: LocalDate, dueBefore: LocalDate): List<TaskDto> {
+        val tasks = mutableListOf<TaskDto>()
+        val seenCursors = mutableSetOf<String>()
+        var cursor: String? = null
+        for (pageIndex in 0 until MAX_PAGES) {
+            val page = remoteDataSource.getTasks(
+                dueAfter = dueAfter,
+                dueBefore = dueBefore,
+                cursor = cursor,
+                limit = PAGE_SIZE,
+            ).getOrThrow()
+            tasks += page.data
+            val nextCursor = page.meta.nextCursor
+            if (!page.meta.hasMore || nextCursor == null || !seenCursors.add(nextCursor)) break
+            cursor = nextCursor
+        }
+        return tasks
+    }
 
     /** A 404 from any per-task endpoint means "not this caller's task" — surfaced as [TaskNotFoundException], same as [com.lifeos.app.features.travel.domain.model.TripNotFoundException]'s precedent. */
     private fun ApiException.toDomainOrSelf(taskId: String): Exception =
         if (statusCode == HttpStatusCode.NotFound.value) TaskNotFoundException(taskId) else this
+
+    private companion object {
+        /** The backend's maximum `limit` for `GET /planner/tasks`. */
+        const val PAGE_SIZE = 100
+
+        /** Safety cap: 10 pages of [PAGE_SIZE] is far beyond any real month. */
+        const val MAX_PAGES = 10
+    }
 }

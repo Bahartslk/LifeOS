@@ -29,6 +29,9 @@ data class CalendarUiState(
 sealed interface CalendarEvent {
     data object BackClicked : CalendarEvent
     data object RetryClicked : CalendarEvent
+
+    /** Dispatched by `CalendarRoute`'s `DisposableEffect` on `ON_RESUME` — see [CalendarViewModel]'s KDoc. */
+    data object ScreenResumed : CalendarEvent
     data object PreviousMonthClicked : CalendarEvent
     data object NextMonthClicked : CalendarEvent
     data class DaySelected(val date: LocalDate) : CalendarEvent

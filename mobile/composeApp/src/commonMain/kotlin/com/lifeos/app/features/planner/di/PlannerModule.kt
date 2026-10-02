@@ -1,6 +1,5 @@
 package com.lifeos.app.features.planner.di
 
-import com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource
 import com.lifeos.app.features.planner.data.remote.PlannerRemoteDataSource
 import com.lifeos.app.features.planner.data.repository.PlannerRepositoryImpl
 import com.lifeos.app.features.planner.domain.repository.PlannerRepository
@@ -23,20 +22,16 @@ import org.koin.dsl.module
 
 /**
  * Planner's Koin module, following the same shape as `features/home/di/HomeModule.kt`
- * and `features/travel/di/TravelModule.kt`. [PlannerRepositoryImpl] replaces
- * the former `FakePlannerRepository` (Iteration 2 of the backend integration
- * migration); [FakePlannerDataSource] is kept as a dependency of
- * [PlannerRepositoryImpl] itself, not removed — Planner Calendar and subtask
- * toggling still have no backend counterpart, see that class's KDoc. Also
- * hosts Task Detail's, Create Task's, and Planner Calendar's dependencies
- * (each extending `features/planner/` rather than a new module).
+ * and `features/travel/di/TravelModule.kt`. [PlannerRepositoryImpl] is backed
+ * only by the real backend ([PlannerRemoteDataSource]) — Planner Calendar
+ * included; `FakePlannerDataSource` is no longer bound here and survives
+ * only as `@Preview` data. Also hosts Task Detail's, Create Task's, and
+ * Planner Calendar's dependencies (each extending `features/planner/`
+ * rather than a new module).
  */
 val plannerModule: Module = module {
-    single { FakePlannerDataSource() }
     single { PlannerRemoteDataSource(httpClient = get<HttpClient>()) }
-    single<PlannerRepository> {
-        PlannerRepositoryImpl(remoteDataSource = get(), fakeDataSource = get())
-    }
+    single<PlannerRepository> { PlannerRepositoryImpl(remoteDataSource = get()) }
     factory { GetPlannerDashboardUseCase(plannerRepository = get()) }
     factory { ToggleTaskCompletionUseCase(plannerRepository = get()) }
     factory { GetTaskDetailUseCase(plannerRepository = get()) }

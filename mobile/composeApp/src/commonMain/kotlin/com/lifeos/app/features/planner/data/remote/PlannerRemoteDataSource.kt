@@ -5,12 +5,14 @@ import com.lifeos.app.core.network.ApiErrorResponse
 import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.core.network.dataOrThrow
 import com.lifeos.app.features.planner.data.dto.CreateTaskRequestDto
+import com.lifeos.app.features.planner.data.dto.PaginatedTasksDto
 import com.lifeos.app.features.planner.data.dto.PlannerDashboardDto
 import com.lifeos.app.features.planner.data.dto.TaskDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -18,6 +20,8 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.LocalDate
 
 /**
  * Calls the real `/api/v1/planner` endpoints, per docs/15-api-design.md.
@@ -33,6 +37,33 @@ class PlannerRemoteDataSource(private val httpClient: HttpClient) {
 
     suspend fun getDashboard(): PlannerDashboardDto =
         httpClient.get(endpoint("planner/dashboard")).dataOrThrow()
+
+    /**
+     * One page of `GET /planner/tasks`, sorted by due date. Both date bounds
+     * are inclusive `YYYY-MM-DD` values; a `null` argument is simply not
+     * sent (Ktor's [parameter] skips nulls). Paging through every page is
+     * the repository's job — this returns exactly one response.
+     */
+    suspend fun getTasks(
+        dueAfter: LocalDate?,
+        dueBefore: LocalDate?,
+        cursor: String?,
+        limit: Int,
+    ): Result<PaginatedTasksDto> = try {
+        val response = httpClient.get(endpoint("planner/tasks")) {
+            parameter("dueAfter", dueAfter?.toString())
+            parameter("dueBefore", dueBefore?.toString())
+            parameter("cursor", cursor)
+            parameter("limit", limit)
+            parameter("sort", "dueDate")
+        }
+        response.throwIfError()
+        Result.success(response.body<PaginatedTasksDto>())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 
     suspend fun getTask(taskId: String): TaskDto =
         httpClient.get(endpoint("planner/tasks/$taskId")).dataOrThrow()
@@ -58,7 +89,8 @@ class PlannerRemoteDataSource(private val httpClient: HttpClient) {
     /**
      * `DELETE /planner/tasks/:id` replies `204 No Content` — no JSON body,
      * so [com.lifeos.app.core.network.dataOrThrow] (which always tries to
-     * decode a `{data: ...}` envelope on success) doesn't fit. Duplicates
+     * decode a `{data: ...}` envelope on success) doesn't fit; nor does it
+     * fit [getTasks], whose `meta` block `dataOrThrow` would drop. Duplicates
      * its few-line error branch locally rather than changing the shared
      * helper, per this iteration's "stay inside the Planner data layer"
      * scope.

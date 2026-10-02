@@ -1,8 +1,9 @@
 package com.lifeos.app.features.planner.data.repository
 
+import com.lifeos.app.core.date.AppToday
+import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.core.network.AuthTokenProvider
 import com.lifeos.app.core.network.HttpClientFactory
-import com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource
 import com.lifeos.app.features.planner.data.remote.PlannerRemoteDataSource
 import com.lifeos.app.features.planner.domain.model.CreateTaskRequest
 import com.lifeos.app.features.planner.domain.model.TaskCategory
@@ -37,8 +38,8 @@ import kotlin.test.assertTrue
 /**
  * Pins the current behavior of [PlannerRepositoryImpl] against the real
  * [PlannerRemoteDataSource] and the shared authenticated Ktor client, with
- * HTTP served by [MockEngine]. Documents existing behavior only; nothing
- * here changes production code.
+ * HTTP served by [MockEngine], including the real Planner Calendar range
+ * queries against `GET /planner/tasks`.
  */
 class PlannerRepositoryImplTest {
 
@@ -62,7 +63,6 @@ class PlannerRepositoryImplTest {
                 },
             ),
         ),
-        fakeDataSource = FakePlannerDataSource(),
     )
 
     @Test
@@ -82,10 +82,14 @@ class PlannerRepositoryImplTest {
                 """.trimIndent(),
             )
         }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
 
         val dashboard = repository.getDashboard().getOrThrow()
 
-        assertEquals("Bearer $ACCESS_TOKEN", recordedRequests.single().headers[HttpHeaders.Authorization])
+        assertEquals(
+            "Bearer $ACCESS_TOKEN",
+            recordedRequests.single { it.routeKey() == "GET planner/dashboard" }.headers[HttpHeaders.Authorization],
+        )
         assertEquals(5, dashboard.overview.totalTaskCount)
         assertEquals(3, dashboard.overview.completedTaskCount)
         assertEquals(60, dashboard.overview.productivityPercent)
@@ -235,6 +239,7 @@ class PlannerRepositoryImplTest {
                 """{"data":{"todayTasks":[${taskJson(id = TASK_ID, priority = "URGENT")}],"upcomingTasks":[],"completedCount":0,"pendingCount":1,"progressPercentage":0}}""",
             )
         }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
 
         val result = repository.getDashboard()
 
@@ -264,11 +269,216 @@ class PlannerRepositoryImplTest {
                 HttpStatusCode.InternalServerError,
             )
         }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
 
         val result = repository.getDashboard()
 
         assertTrue(result.isFailure)
         assertNull(result.getOrNull())
+    }
+
+    @Test
+    fun getDashboard_usesRealTaskCountsForCurrentMonth() = runTest {
+        val today = AppToday.date
+        routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
+        routes["GET planner/tasks"] = {
+            respondJson(
+                pageJson(
+                    tasks = listOf(
+                        taskJson(id = TASK_ID, dueDate = today.toString()),
+                        taskJson(id = OTHER_TASK_ID, dueDate = today.toString()),
+                    ),
+                ),
+            )
+        }
+
+        val calendar = repository.getDashboard().getOrThrow().calendar
+
+        val request = tasksRequests().single()
+        assertEquals(LocalDate(today.year, today.monthNumber, 1).toString(), request.url.parameters["dueAfter"])
+        val todayCell = calendar.days.single { it.date == today }
+        assertTrue(todayCell.isToday)
+        assertEquals(2, todayCell.taskCount)
+        assertEquals(2, calendar.days.sumOf { it.taskCount })
+    }
+
+    @Test
+    fun getDashboard_taskRangeFailure_stillReturnsDashboard_withZeroCounts() = runTest {
+        routes["GET planner/dashboard"] = {
+            respondJson(
+                """{"data":{"todayTasks":[${taskJson(id = TASK_ID)}],"upcomingTasks":[],"completedCount":1,"pendingCount":1,"progressPercentage":50}}""",
+            )
+        }
+        routes["GET planner/tasks"] = { serverError() }
+
+        val result = repository.getDashboard()
+
+        assertTrue(result.isSuccess)
+        val dashboard = result.getOrThrow()
+        assertEquals(TASK_ID, dashboard.todayTasks.single().id)
+        assertEquals(2, dashboard.overview.totalTaskCount)
+        assertEquals(50, dashboard.overview.productivityPercent)
+        assertTrue(dashboard.calendar.days.isNotEmpty())
+        assertTrue(dashboard.calendar.days.all { it.taskCount == 0 })
+        assertTrue(dashboard.calendar.days.any { it.isToday })
+    }
+
+    @Test
+    fun getDashboard_taskRangeNetworkError_stillReturnsDashboard() = runTest {
+        routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
+        routes["GET planner/tasks"] = { error("offline") }
+
+        val dashboard = repository.getDashboard().getOrThrow()
+
+        assertTrue(dashboard.calendar.days.all { it.taskCount == 0 })
+    }
+
+    @Test
+    fun getCalendarMonth_requestsWholeMonth_withMaxLimit() = runTest {
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        repository.getCalendarMonth(2028, 2).getOrThrow()
+
+        val parameters = tasksRequests().single().url.parameters
+        assertEquals("2028-02-01", parameters["dueAfter"])
+        assertEquals("2028-02-29", parameters["dueBefore"])
+        assertEquals("100", parameters["limit"])
+        assertEquals("dueDate", parameters["sort"])
+        assertNull(parameters["cursor"])
+        assertEquals("Bearer $ACCESS_TOKEN", tasksRequests().single().headers[HttpHeaders.Authorization])
+    }
+
+    @Test
+    fun getCalendarMonth_mapsRealTaskCountsToDays() = runTest {
+        routes["GET planner/tasks"] = {
+            respondJson(
+                pageJson(
+                    tasks = listOf(
+                        taskJson(id = "a", dueDate = "2026-10-02"),
+                        taskJson(id = "b", dueDate = "2026-10-02"),
+                        taskJson(id = "c", dueDate = "2026-10-15", status = "DONE"),
+                    ),
+                ),
+            )
+        }
+
+        val calendar = repository.getCalendarMonth(2026, 10).getOrThrow()
+
+        fun countOn(day: Int) = calendar.days.single { it.date == LocalDate(2026, 10, day) }.taskCount
+        assertEquals(2, countOn(2))
+        assertEquals(1, countOn(15))
+        assertEquals(0, countOn(3))
+        assertEquals(3, calendar.days.sumOf { it.taskCount })
+        assertEquals(31, calendar.days.count { it.isCurrentMonth })
+        assertTrue(calendar.days.filterNot { it.isCurrentMonth }.all { it.taskCount == 0 })
+    }
+
+    @Test
+    fun getCalendarMonth_emptyRange_returnsGridWithZeroCounts() = runTest {
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        val calendar = repository.getCalendarMonth(2026, 9).getOrThrow()
+
+        assertEquals(30, calendar.days.count { it.isCurrentMonth })
+        assertTrue(calendar.days.all { it.taskCount == 0 })
+    }
+
+    @Test
+    fun getCalendarMonth_followsCursorUntilHasMoreIsFalse() = runTest {
+        routes["GET planner/tasks"] = {
+            when (recordedRequests.last().url.parameters["cursor"]) {
+                null -> respondJson(pageJson(tasks = listOf(taskJson(id = "a", dueDate = "2026-10-01")), nextCursor = "a", hasMore = true))
+                "a" -> respondJson(pageJson(tasks = listOf(taskJson(id = "b", dueDate = "2026-10-20")), nextCursor = "b", hasMore = true))
+                else -> respondJson(pageJson(tasks = listOf(taskJson(id = "c", dueDate = "2026-10-20"))))
+            }
+        }
+
+        val calendar = repository.getCalendarMonth(2026, 10).getOrThrow()
+
+        assertEquals(listOf(null, "a", "b"), tasksRequests().map { it.url.parameters["cursor"] })
+        assertTrue(tasksRequests().all { it.url.parameters["dueAfter"] == "2026-10-01" && it.url.parameters["dueBefore"] == "2026-10-31" })
+        assertEquals(1, calendar.days.single { it.date == LocalDate(2026, 10, 1) }.taskCount)
+        assertEquals(2, calendar.days.single { it.date == LocalDate(2026, 10, 20) }.taskCount)
+    }
+
+    @Test
+    fun getCalendarMonth_duplicateCursor_stopsSafely() = runTest {
+        routes["GET planner/tasks"] = {
+            respondJson(pageJson(tasks = listOf(taskJson(id = "a", dueDate = "2026-10-01")), nextCursor = "same", hasMore = true))
+        }
+
+        val result = repository.getCalendarMonth(2026, 10)
+
+        assertTrue(result.isSuccess)
+        assertEquals(listOf(null, "same"), tasksRequests().map { it.url.parameters["cursor"] })
+    }
+
+    @Test
+    fun getCalendarMonth_neverEndingPages_stopAtSafetyCap() = runTest {
+        routes["GET planner/tasks"] = {
+            val next = "cursor-${tasksRequests().size}"
+            respondJson(pageJson(tasks = emptyList(), nextCursor = next, hasMore = true))
+        }
+
+        assertTrue(repository.getCalendarMonth(2026, 10).isSuccess)
+        assertEquals(10, tasksRequests().size)
+    }
+
+    @Test
+    fun getCalendarMonth_httpFailure_returnsFailure() = runTest {
+        routes["GET planner/tasks"] = { serverError() }
+
+        val result = repository.getCalendarMonth(2026, 10)
+
+        assertTrue(result.isFailure)
+        assertEquals(500, assertIs<ApiException>(result.exceptionOrNull()).statusCode)
+    }
+
+    @Test
+    fun getTasksForDay_requestsSingleDayRange_andOrdersByTime() = runTest {
+        routes["GET planner/tasks"] = {
+            respondJson(
+                pageJson(
+                    tasks = listOf(
+                        taskJson(id = "untimed", dueTime = "null"),
+                        taskJson(id = "late", dueTime = "\"18:00\""),
+                        taskJson(id = "early", dueTime = "\"08:15\"", priority = "HIGH"),
+                    ),
+                ),
+            )
+        }
+
+        val tasks = repository.getTasksForDay(LocalDate(2026, 10, 2)).getOrThrow()
+
+        val parameters = tasksRequests().single().url.parameters
+        assertEquals("2026-10-02", parameters["dueAfter"])
+        assertEquals("2026-10-02", parameters["dueBefore"])
+        assertEquals("100", parameters["limit"])
+        assertEquals(listOf("early", "late", "untimed"), tasks.map { it.id })
+        assertEquals(TaskPriority.HIGH, tasks.first().priority)
+        assertEquals(TaskDueDate(LocalDate(2026, 10, 2), LocalTime(8, 15)), tasks.first().dueDate)
+    }
+
+    @Test
+    fun getTasksForDay_httpFailure_returnsFailure() = runTest {
+        routes["GET planner/tasks"] = { serverError() }
+
+        assertIs<ApiException>(repository.getTasksForDay(LocalDate(2026, 10, 2)).exceptionOrNull())
+    }
+
+    @Test
+    fun getTasksForDay_networkError_returnsFailure() = runTest {
+        routes["GET planner/tasks"] = { error("offline") }
+
+        assertTrue(repository.getTasksForDay(LocalDate(2026, 10, 2)).isFailure)
+    }
+
+    @Test
+    fun toggleSubtaskCompletion_failsWithoutNetworkCall() = runTest {
+        val result = repository.toggleSubtaskCompletion(TASK_ID, "subtask-1")
+
+        assertIs<UnsupportedOperationException>(result.exceptionOrNull())
+        assertTrue(recordedRequests.isEmpty())
     }
 
     private fun request(time: LocalTime?) = CreateTaskRequest(
@@ -297,6 +507,16 @@ class PlannerRepositoryImplTest {
         """"priority":"$priority","category":"$category","status":"$status","source":"$source","taskListId":null,""" +
         """"createdAt":"2026-10-02T11:35:30.588Z","updatedAt":"2026-10-02T11:35:30.588Z"}"""
 
+    private fun pageJson(tasks: List<String>, nextCursor: String? = null, hasMore: Boolean = false) =
+        """{"data":[${tasks.joinToString(",")}],"meta":{"nextCursor":${nextCursor?.let { "\"$it\"" } ?: "null"},"limit":100,"hasMore":$hasMore}}"""
+
+    private fun MockRequestHandleScope.serverError(): HttpResponseData = respondJson(
+        """{"statusCode":500,"error":"INTERNAL_SERVER_ERROR","message":"boom","path":"/x","timestamp":"t"}""",
+        HttpStatusCode.InternalServerError,
+    )
+
+    private fun tasksRequests(): List<HttpRequestData> = recordedRequests.filter { it.routeKey() == "GET planner/tasks" }
+
     private fun MockRequestHandleScope.respondJson(
         body: String,
         status: HttpStatusCode = HttpStatusCode.OK,
@@ -315,5 +535,7 @@ class PlannerRepositoryImplTest {
         const val ACCESS_TOKEN = "test-access-token"
         const val TASK_ID = "11111111-1111-1111-1111-111111111111"
         const val OTHER_TASK_ID = "22222222-2222-2222-2222-222222222222"
+        const val EMPTY_DASHBOARD_JSON =
+            """{"data":{"todayTasks":[],"upcomingTasks":[],"completedCount":0,"pendingCount":0,"progressPercentage":0}}"""
     }
 }
