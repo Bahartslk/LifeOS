@@ -20,6 +20,16 @@ can reference a `taskListId`, but lists themselves can only be created
 directly in the database until a future sprint adds one. `PlannerService`
 is exported for cross-module use (see Sprint 16.0 below).
 
+Planner Step 3 (overdue tasks + local date): the dashboard's "today" is
+the caller's local date — an optional `?date=YYYY-MM-DD` from the client,
+otherwise today in `User.timezone` (via `common/utils/date-time.util.ts`'s
+`todayInTimeZone`; `PlannerModule` now imports `UsersModule`) — instead of
+the server's UTC date. The response gains `overdueTasks` (unfinished tasks
+due before today), which `highPriorityTasks` and the AI Planner context
+now include; the `planner`/`assistant` prompt templates were bumped to
+`v2` for that. Travel's dashboard still uses the UTC date (separate
+follow-up).
+
 Sprint 16.0 (Travel Backend) implemented `travel` in full: trip CRUD,
 itinerary CRUD + reorder, and the dashboard, per
 [15-api-design.md](../../../docs/15-api-design.md#trips-travel). Split into

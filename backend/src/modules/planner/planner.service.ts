@@ -8,7 +8,14 @@ import { TaskQueryDto } from './dto/task-query.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { PaginatedTasksResponseDto } from './dto/paginated-tasks-response.dto';
 import { PlannerDashboardResponseDto } from './dto/dashboard-response.dto';
-import { fromDbDate, fromDbTime, toDbDate, toDbTime } from '../../common/utils/date-time.util';
+import {
+  fromDbDate,
+  fromDbTime,
+  toDbDate,
+  toDbTime,
+  todayInTimeZone,
+} from '../../common/utils/date-time.util';
+import { UsersService } from '../users/users.service';
 
 type SortField = 'dueDate' | 'createdAt' | 'priority';
 
@@ -35,6 +42,7 @@ export class PlannerService {
   constructor(
     private readonly tasksRepository: TasksRepository,
     private readonly taskListsRepository: TaskListsRepository,
+    private readonly usersService: UsersService,
   ) {}
 
   async createTask(userId: string, dto: CreateTaskDto): Promise<TaskResponseDto> {
@@ -167,31 +175,42 @@ export class PlannerService {
    * `PlannerDashboardResponseDto`'s doc comment). Field-by-field derivation
    * matches `BuildAiTaskContextUseCase`'s classification exactly:
    *
+   * "Today" is the caller's own local date: `date` ("YYYY-MM-DD", sent
+   * by the mobile client from its device clock) when given, otherwise
+   * today in the caller's `User.timezone` — never the server's UTC date,
+   * which is still "yesterday" in Turkey between 00:00 and 03:00.
+   *
+   * - `overdueTasks`: unfinished (TODO/IN_PROGRESS) tasks due before
+   *   today. Date-based only — a task due today is never overdue.
    * - `todayTasks`/`upcomingTasks`: real DB queries (dueDate = today /
-   *   dueDate > today), any status.
+   *   dueDate > today), any status. The three lists never overlap.
    * - `completedCount`/`pendingCount`/`progressPercentage`: over the
    *   caller's ENTIRE active task set, not just today/upcoming — matching
    *   how mobile's `PlannerOverview` fake data deliberately counts more
    *   tasks than `todayTasks`/`upcomingTasks` show (a real backlog total,
    *   not a sum of the two visible lists).
    * - `highPriorityTasks`: incomplete (status != DONE), priority HIGH,
-   *   drawn from `todayTasks + upcomingTasks` (not the full backlog).
+   *   drawn from `overdueTasks + todayTasks + upcomingTasks`, in that order.
    * - `travelTasks`: source = TRAVEL, drawn from `todayTasks +
    *   upcomingTasks`, any status.
    */
-  async getDashboard(userId: string): Promise<PlannerDashboardResponseDto> {
-    const today = this.todayUtcMidnight();
+  async getDashboard(userId: string, date?: string): Promise<PlannerDashboardResponseDto> {
+    const today = toDbDate(date ?? (await this.todayForUser(userId)));
 
-    const [todayTasks, upcomingTasks, counts] = await Promise.all([
+    const [overdueTasks, todayTasks, upcomingTasks, counts] = await Promise.all([
+      this.tasksRepository.findOverdue(userId, today),
       this.tasksRepository.findDueOn(userId, today),
       this.tasksRepository.findDueAfter(userId, today),
       this.tasksRepository.countTotalAndCompleted(userId),
     ]);
 
     const combined = [...todayTasks, ...upcomingTasks];
-    const incomplete = combined.filter((task) => task.status !== TaskStatus.DONE);
+    const incomplete = [...overdueTasks, ...combined].filter(
+      (task) => task.status !== TaskStatus.DONE,
+    );
 
     return {
+      overdueTasks: overdueTasks.map((task) => this.toResponse(task)),
       todayTasks: todayTasks.map((task) => this.toResponse(task)),
       upcomingTasks: upcomingTasks.map((task) => this.toResponse(task)),
       completedCount: counts.completed,
@@ -245,8 +264,10 @@ export class PlannerService {
     return { field, direction };
   }
 
-  private todayUtcMidnight(): Date {
-    return new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+  /** Today ("YYYY-MM-DD") in the caller's profile timezone — `getDashboard`'s fallback when the client sends no `date`. */
+  private async todayForUser(userId: string): Promise<string> {
+    const { timezone } = await this.usersService.getProfile(userId);
+    return todayInTimeZone(timezone);
   }
 
   private toResponse(task: Task): TaskResponseDto {

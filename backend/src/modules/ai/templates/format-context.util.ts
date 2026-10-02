@@ -20,9 +20,11 @@ function formatTask(task: AiPlannerTaskSummary): string {
 }
 
 export function formatPlannerContext(planner: AiPlannerContext): string {
+  const overdue = planner.overdueTasks.map(formatTask).join('\n') || '(none)';
   const today = planner.todayTasks.map(formatTask).join('\n') || '(none)';
   const upcoming = planner.upcomingTasks.map(formatTask).join('\n') || '(none)';
   return [
+    `Overdue tasks (unfinished, due before today):\n${overdue}`,
     `Today's tasks:\n${today}`,
     `Upcoming tasks:\n${upcoming}`,
     `Progress: ${planner.completedCount} completed, ${planner.pendingCount} pending (${planner.progressPercentage}%).`,

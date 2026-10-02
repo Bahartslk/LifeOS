@@ -25,6 +25,7 @@ import { JwtPayload } from '../../common/strategies/jwt.strategy';
 import { PlannerService } from './planner.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
+import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import { TaskQueryDto } from './dto/task-query.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { PaginatedTasksResponseDto } from './dto/paginated-tasks-response.dto';
@@ -132,10 +133,13 @@ export class PlannerController {
   @Get('dashboard')
   @ApiOperation({
     summary:
-      "The caller's Planner dashboard: today/upcoming tasks, completion stats, high-priority and travel tasks",
+      "The caller's Planner dashboard: overdue/today/upcoming tasks, completion stats, high-priority and travel tasks",
   })
   @ApiOkResponse({ type: PlannerDashboardResponseDto })
-  getDashboard(@CurrentUser() user: JwtPayload): Promise<PlannerDashboardResponseDto> {
-    return this.plannerService.getDashboard(user.sub);
+  getDashboard(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: DashboardQueryDto,
+  ): Promise<PlannerDashboardResponseDto> {
+    return this.plannerService.getDashboard(user.sub, query.date);
   }
 }

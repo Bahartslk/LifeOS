@@ -126,6 +126,26 @@ export class TasksRepository {
     });
   }
 
+  /**
+   * Every active, unfinished (TODO/IN_PROGRESS) task due strictly before
+   * `today` — Planner Dashboard's "overdue" bucket. Date-based only: a task
+   * due today is never overdue here, even once its `dueTime` has passed.
+   * Served by the partial `(user_id, due_date) WHERE deleted_at IS NULL`
+   * index (see the `add_planner` migration). `createdAt` is the final
+   * tie-breaker so the order is stable.
+   */
+  findOverdue(userId: string, today: Date): Promise<Task[]> {
+    return this.prisma.task.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        dueDate: { lt: today },
+        status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
+      },
+      orderBy: [{ dueDate: 'asc' }, { dueTime: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
   /** Every active task due strictly after `today`, any status — Planner Dashboard's "upcoming" bucket. No cutoff window: all future tasks, per this sprint's scope decision (see `PlannerService`). */
   findDueAfter(userId: string, date: Date): Promise<Task[]> {
     return this.prisma.task.findMany({

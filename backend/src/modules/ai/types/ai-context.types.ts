@@ -24,6 +24,7 @@ export interface AiPlannerTaskSummary {
 }
 
 export interface AiPlannerContext {
+  overdueTasks: AiPlannerTaskSummary[];
   todayTasks: AiPlannerTaskSummary[];
   upcomingTasks: AiPlannerTaskSummary[];
   completedCount: number;

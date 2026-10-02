@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
+import { UsersModule } from '../users/users.module';
 import { PlannerAiController } from './ai/planner-ai.controller';
 import { PlannerAiService } from './ai/planner-ai.service';
 import { PlannerController } from './planner.controller';
@@ -30,9 +31,13 @@ import { TaskListsRepository } from './repositories/task-lists.repository';
  * both sides rather than restructured away, since the dependency itself is
  * real in both directions. See `AiModule`'s own doc comment for the full
  * reasoning.
+ *
+ * Imports `UsersModule` (plain, no `forwardRef`) so `PlannerService.getDashboard`
+ * can resolve "today" in the caller's `User.timezone`. `UsersModule` imports
+ * nothing, so this adds no new cycle.
  */
 @Module({
-  imports: [forwardRef(() => AiModule)],
+  imports: [forwardRef(() => AiModule), UsersModule],
   controllers: [PlannerController, PlannerAiController],
   providers: [PlannerService, TasksRepository, TaskListsRepository, PlannerAiService],
   exports: [PlannerService],
