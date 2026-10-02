@@ -9,10 +9,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lifeos.app.core.date.AppDateFormatter
 import com.lifeos.app.core.designsystem.components.AppSnackbarHost
 import com.lifeos.app.core.designsystem.components.ErrorView
@@ -38,6 +42,11 @@ import org.koin.compose.viewmodel.koinViewModel
  * feature follows. Selecting a task opens the existing Task Detail screen;
  * the FAB opens the existing Create Task screen — Calendar introduces no
  * navigation destinations of its own beyond itself.
+ *
+ * The [DisposableEffect] below dispatches [CalendarEvent.ScreenResumed]
+ * whenever this screen returns to the foreground — the same mechanism
+ * `PlannerRoute` uses — so returning from Create Task/Task Detail shows the
+ * calendar's current real tasks.
  */
 @Composable
 fun CalendarRoute(
@@ -56,6 +65,17 @@ fun CalendarRoute(
             CalendarAction.NavigateToCreateTask -> onNavigateToCreateTask()
             is CalendarAction.ShowMessage -> snackbarHostState.showSnackbar(action.message)
         }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.onEvent(CalendarEvent.ScreenResumed)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     CalendarScreen(

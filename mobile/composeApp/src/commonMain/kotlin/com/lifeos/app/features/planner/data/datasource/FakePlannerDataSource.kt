@@ -1,9 +1,7 @@
 package com.lifeos.app.features.planner.data.datasource
 
-import com.lifeos.app.core.date.AppDateFormatter
 import com.lifeos.app.core.date.AppToday
 import com.lifeos.app.features.planner.domain.model.CreateTaskRequest
-import com.lifeos.app.features.planner.domain.model.PlannerCalendarDay
 import com.lifeos.app.features.planner.domain.model.PlannerCalendarMonth
 import com.lifeos.app.features.planner.domain.model.PlannerDashboard
 import com.lifeos.app.features.planner.domain.model.PlannerOverview
@@ -17,11 +15,9 @@ import com.lifeos.app.features.planner.domain.model.TaskDueDate
 import com.lifeos.app.features.planner.domain.model.TaskPriority
 import com.lifeos.app.features.planner.domain.model.TaskSource
 import com.lifeos.app.features.planner.domain.model.TaskStatus
-import kotlinx.datetime.DateTimeUnit
+import com.lifeos.app.features.planner.domain.util.CalendarMonthBuilder
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 
 /**
  * The one place fake Planner data lives, per this task's "keep fake data
@@ -321,51 +317,13 @@ class FakePlannerDataSource {
     }
 
     /**
-     * A complete, calendrically-correct month grid for any (year, month) —
-     * Planner Calendar's requirement to page arbitrary months. [Task] task
-     * counts per day come from [tasksForDay]; leading/trailing days
-     * borrowed from adjacent months stay decorative-only (`taskCount = 0`),
-     * matching how the original October-only grid always treated them.
-     *
-     * Built entirely from `kotlinx-datetime` arithmetic (this sprint's
-     * refactor replaced a hand-rolled `days_from_civil` weekday calculation
-     * with [LocalDate.dayOfWeek] directly, and manual leap-year/days-in-month
-     * math with [LocalDate.plus]/[LocalDate.minus]) — no calendar math is
-     * hand-rolled in this class anymore.
+     * A complete month grid for any (year, month), for previews only — the
+     * grid arithmetic itself lives in [CalendarMonthBuilder] (shared with
+     * the real repository); task counts per day come from this class's own
+     * fake task set.
      */
-    fun calendarMonth(year: Int, month: Int): PlannerCalendarMonth {
-        val firstOfMonth = LocalDate(year, month, 1)
-        val firstOfNextMonth = firstOfMonth.plus(1, DateTimeUnit.MONTH)
-        val totalDays = firstOfNextMonth.minus(1, DateTimeUnit.DAY).dayOfMonth
-        // DayOfWeek is ISO-ordered (Monday first), so .ordinal is already a Monday-indexed 0..6 count.
-        val leadingCount = firstOfMonth.dayOfWeek.ordinal
-
-        val days = buildList {
-            for (offset in leadingCount downTo 1) {
-                add(calendarDay(firstOfMonth.minus(offset, DateTimeUnit.DAY), isCurrentMonth = false))
-            }
-            for (day in 1..totalDays) {
-                add(calendarDay(LocalDate(year, month, day), isCurrentMonth = true))
-            }
-            val trailingCount = (DAYS_PER_WEEK - (size % DAYS_PER_WEEK)) % DAYS_PER_WEEK
-            for (offset in 0 until trailingCount) {
-                add(calendarDay(firstOfNextMonth.plus(offset, DateTimeUnit.DAY), isCurrentMonth = false))
-            }
-        }
-
-        return PlannerCalendarMonth(
-            monthLabel = AppDateFormatter.toMonthYearLabel(year, month),
-            weekdayLabels = AppDateFormatter.weekdayShortLabels,
-            days = days,
-        )
-    }
-
-    private fun calendarDay(date: LocalDate, isCurrentMonth: Boolean): PlannerCalendarDay = PlannerCalendarDay(
-        date = date,
-        isCurrentMonth = isCurrentMonth,
-        isToday = date == AppToday.date,
-        taskCount = if (isCurrentMonth) tasksForDay(date).size else 0,
-    )
+    fun calendarMonth(year: Int, month: Int): PlannerCalendarMonth =
+        CalendarMonthBuilder.build(year = year, month = month, tasks = todayTasks + upcomingTasks)
 
     /**
      * Every [Task] (today's or upcoming's — the exact same lists every
@@ -385,6 +343,5 @@ class FakePlannerDataSource {
         const val OTHER_TASK_COUNT = 4
         const val BASE_COMPLETED_COUNT = 7
         const val PRODUCTIVITY_PERCENT = 92
-        const val DAYS_PER_WEEK = 7
     }
 }

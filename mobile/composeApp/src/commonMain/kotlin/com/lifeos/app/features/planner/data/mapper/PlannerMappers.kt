@@ -83,8 +83,8 @@ fun CreateTaskRequest.toDto(): CreateTaskRequestDto = CreateTaskRequestDto(
  * the backend's dashboard response has no `date`/calendar-grid concept of
  * its own (see this iteration's approved mismatch report) —
  * [com.lifeos.app.features.planner.data.repository.PlannerRepositoryImpl]
- * computes the real "today" and the (still fake-backed) calendar grid
- * itself and passes both in.
+ * computes the real "today" and the calendar grid (from the user's real
+ * tasks for the current month) itself and passes both in.
  */
 fun PlannerDashboardDto.toDomain(date: LocalDate, calendar: PlannerCalendarMonth): PlannerDashboard = PlannerDashboard(
     date = date,

@@ -157,7 +157,7 @@ Planned next:
 5. ⏳ Profile backend integration — wire the existing `GET/PATCH /api/v1/users/me` and `PATCH /api/v1/users/preferences` endpoints into the Profile UI
 6. ⏳ AI Assistant backend integration — connect the client to the existing Gemini/OpenRouter-backed `/api/v1/ai/...` and Daily Brief endpoints
 7. ⏳ Real week-over-week productivity history (currently an honest empty state — no backend endpoint tracks it yet)
-8. ⏳ Planner Calendar and subtask persistence against the real backend (currently local-only; no backend model for either yet)
+8. ⏳ Subtask persistence against the real backend (no backend model yet; toggling a subtask fails explicitly). Planner Calendar already reads the user's real tasks via `GET /api/v1/planner/tasks?dueAfter=&dueBefore=`
 9. ⏳ iOS build verification (source sets exist; not yet built/tested on this project)
 
 See [`docs/11-roadmap.md`](docs/11-roadmap.md) for the full, longer-term product roadmap.

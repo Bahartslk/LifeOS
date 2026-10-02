@@ -37,6 +37,11 @@ import kotlinx.datetime.plus
  * sprint's date refactor) so paging months is real
  * [kotlinx.datetime] arithmetic ([DatePeriod]) instead of hand-rolled
  * month/year rollover math.
+ *
+ * [CalendarEvent.ScreenResumed] is dispatched by `CalendarRoute` on
+ * `ON_RESUME` — the same mechanism `PlannerRoute` uses — so a task created
+ * from this screen's FAB (or edited/deleted in Task Detail) shows up as
+ * soon as the user navigates back, without re-showing the loading skeleton.
  */
 class CalendarViewModel(
     private val getCalendarMonth: GetCalendarMonthUseCase,
@@ -59,6 +64,7 @@ class CalendarViewModel(
         when (event) {
             CalendarEvent.BackClicked -> sendAction(CalendarAction.NavigateBack)
             CalendarEvent.RetryClicked -> loadMonth()
+            CalendarEvent.ScreenResumed -> refreshMonth()
             CalendarEvent.PreviousMonthClicked -> {
                 displayedMonth = displayedMonth.plus(DatePeriod(months = -1))
                 loadMonth()
@@ -79,7 +85,12 @@ class CalendarViewModel(
             getCalendarMonth(displayedMonth.year, displayedMonth.monthNumber)
                 .onSuccess { calendar ->
                     val defaultDate = calendar.days.firstOrNull { it.isToday && it.isCurrentMonth }?.date ?: displayedMonth
-                    _uiState.value = _uiState.value.copy(isLoading = false, calendar = calendar, selectedDate = defaultDate)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        calendar = calendar,
+                        selectedDate = defaultDate,
+                        errorMessage = null,
+                    )
                     loadAgenda(defaultDate)
                 }
                 .onFailure {
@@ -91,14 +102,48 @@ class CalendarViewModel(
         }
     }
 
+    /**
+     * A silent reload of the displayed month that keeps the user's selected
+     * day. Skipped while [loadMonth] is still running or nothing has loaded
+     * yet: `ON_RESUME` also fires on first composition, right after `init`'s
+     * [loadMonth] started, and a second parallel request would only race it
+     * (a failed initial load already offers Retry). If the refresh fails,
+     * the calendar on screen stays and only a snackbar is shown.
+     */
+    private fun refreshMonth() {
+        val state = _uiState.value
+        if (state.isLoading || state.calendar == null) return
+        viewModelScope.launch {
+            getCalendarMonth(displayedMonth.year, displayedMonth.monthNumber)
+                .onSuccess { calendar ->
+                    val selectedDate = _uiState.value.selectedDate
+                        ?.takeIf { date -> calendar.days.any { it.date == date && it.isCurrentMonth } }
+                        ?: calendar.days.firstOrNull { it.isToday && it.isCurrentMonth }?.date
+                        ?: displayedMonth
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        calendar = calendar,
+                        selectedDate = selectedDate,
+                        errorMessage = null,
+                    )
+                    loadAgenda(selectedDate, showLoading = false)
+                }
+                .onFailure {
+                    sendAction(CalendarAction.ShowMessage(PlannerStrings.CALENDAR_LOAD_ERROR_MESSAGE))
+                }
+        }
+    }
+
     private fun selectDay(date: LocalDate) {
         _uiState.value = _uiState.value.copy(selectedDate = date)
         loadAgenda(date)
     }
 
-    private fun loadAgenda(date: LocalDate) {
+    private fun loadAgenda(date: LocalDate, showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isAgendaLoading = true)
+            if (showLoading) {
+                _uiState.value = _uiState.value.copy(isAgendaLoading = true)
+            }
             getTasksForDay(date)
                 .onSuccess { tasks ->
                     _uiState.value = _uiState.value.copy(isAgendaLoading = false, agendaTasks = tasks)
