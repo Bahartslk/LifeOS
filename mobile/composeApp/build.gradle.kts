@@ -115,11 +115,12 @@ android {
         getByName("debug") {
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/api/v1\"")
         }
-        // Real value supplied at build time via `-PLIFEOS_API_BASE_URL=...`
-        // or a `LIFEOS_API_BASE_URL` entry in `local.properties`/CI secrets —
-        // e.g. a Railway/Render URL — so testing off this machine's network
-        // needs a build-time value, never a source change or duplicated
-        // constant. Falls back to an obvious placeholder if never supplied.
+        // Read from the `LIFEOS_API_BASE_URL` Gradle property: the default in
+        // `mobile/gradle.properties` (the Railway production API), overridable
+        // per build with `-PLIFEOS_API_BASE_URL=...` or in CI with the
+        // `ORG_GRADLE_PROJECT_LIFEOS_API_BASE_URL` environment variable.
+        // `local.properties` is not read. Falls back to an obvious
+        // placeholder if the property is missing entirely.
         getByName("release") {
             isMinifyEnabled = false
             val apiBaseUrl = (project.findProperty("LIFEOS_API_BASE_URL") as String?)

@@ -17,9 +17,9 @@ How to deploy the backend to Railway and build a release APK that works on any A
    - `npm install` → triggers `postinstall` → `prisma generate`
    - `npm run build` → `nest build`
    - `npm run start:prod` → `prisma migrate deploy && node dist/main`
-7. Once deployed, open the service's **Settings → Networking → Generate Domain** to get a public URL, e.g. `https://lifeos-backend-production.up.railway.app`. Confirm it's alive:
+7. Once deployed, open the service's **Settings → Networking → Generate Domain** to get a public URL. LifeOS production uses `https://lifeos-production-532b.up.railway.app`. Confirm it's alive:
    ```
-   curl https://<your-domain>/health
+   curl https://lifeos-production-532b.up.railway.app/health
    ```
    Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`.
 
@@ -29,8 +29,8 @@ How to deploy the backend to Railway and build a release APK that works on any A
 |---|---|
 | `NODE_ENV` | `production` |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (variable reference to the Postgres plugin) |
-| `JWT_ACCESS_TOKEN_PRIVATE_KEY` | Paste the PEM with real line breaks (multi-line value) — same format as `backend/.env` locally, **not** `\n`-escaped. Railway's variable editor accepts multi-line text directly. |
-| `JWT_ACCESS_TOKEN_PUBLIC_KEY` | Same — paste the matching public key PEM. |
+| `JWT_ACCESS_TOKEN_PRIVATE_KEY` | Paste the PEM with real line breaks (multi-line value), **no surrounding quotes** and **not** `\n`-escaped — nothing in the backend unescapes `\n`, so an escaped value fails to parse as a key. Railway's variable editor accepts multi-line text directly. |
+| `JWT_ACCESS_TOKEN_PUBLIC_KEY` | Same — paste the matching public key PEM, real line breaks, no quotes. |
 | `JWT_ACCESS_TOKEN_TTL` | `15m` (or your preferred value) |
 | `JWT_REFRESH_TOKEN_TTL` | `30d` |
 | `BCRYPT_SALT_ROUNDS` | `12` |
@@ -57,29 +57,30 @@ This creates a new file under `prisma/migrations/`. Commit it. The next Railway 
 
 ```
 cd mobile
-./gradlew :composeApp:assembleRelease -PLIFEOS_API_BASE_URL=https://<your-railway-domain>/api/v1
+./gradlew :composeApp:assembleRelease
 ```
-Output: `mobile/composeApp/build/outputs/apk/release/composeApp-release.apk` — already signed (with the project's debug keystore; see section 6's note) and installable on any device via `adb install` or direct file transfer.
+The release build connects to the Railway production API by default: `mobile/gradle.properties` sets `LIFEOS_API_BASE_URL=https://lifeos-production-532b.up.railway.app/api/v1`, which `composeApp/build.gradle.kts` writes into `BuildConfig.API_BASE_URL`.
 
-If you don't pass `-PLIFEOS_API_BASE_URL`, the build still succeeds but falls back to an obvious placeholder URL (`https://REPLACE_WITH_DEPLOYED_BACKEND_URL/api/v1`) that won't resolve — always pass the real flag for a release build.
+Output: `mobile/composeApp/build/outputs/apk/release/composeApp-release.apk` — already signed (with the project's debug keystore; see section 7's note) and installable on any device via `adb install` or direct file transfer.
+
+Only if `LIFEOS_API_BASE_URL` is missing entirely does the build fall back to an obvious placeholder URL (`https://REPLACE_WITH_DEPLOYED_BACKEND_URL/api/v1`) that won't resolve.
 
 ## 6. How to change the API URL in future
 
-Never edit source code for this. Three options, in order of convenience:
+Never edit source code for this. The URL is the `LIFEOS_API_BASE_URL` Gradle property:
 
-- **One-off build**: pass `-PLIFEOS_API_BASE_URL=https://new-url/api/v1` on the `gradlew` command line (overrides everything else).
-- **Local persistent default**: add a line to `mobile/gradle.properties` (a commented example is already there):
-  ```
-  LIFEOS_API_BASE_URL=https://new-url/api/v1
-  ```
-- **CI/automated builds**: set `LIFEOS_API_BASE_URL` as an environment/secret variable in your CI pipeline instead of a properties file.
+- **One-off build**: pass `-PLIFEOS_API_BASE_URL=https://new-url/api/v1` on the `gradlew` command line. It overrides the value in `mobile/gradle.properties` for that build only.
+- **Project default**: change the `LIFEOS_API_BASE_URL` line in `mobile/gradle.properties` (currently the Railway production API). This is the value every release build uses unless overridden.
+- **CI/automated builds**: set the `ORG_GRADLE_PROJECT_LIFEOS_API_BASE_URL` environment variable; Gradle exposes it as the same property.
+
+`mobile/local.properties` is **not** read for this property.
 
 Debug builds are unaffected by all of this — they always use `http://10.0.2.2:3000/api/v1` (the emulator's local-backend alias), matching pre-existing local dev behavior exactly.
 
 ## 7. How to publish future versions
 
 1. Bump `versionCode` (must strictly increase) and `versionName` in `mobile/composeApp/build.gradle.kts`'s `defaultConfig`.
-2. Rebuild: `./gradlew :composeApp:assembleRelease -PLIFEOS_API_BASE_URL=https://<your-railway-domain>/api/v1`.
+2. Rebuild: `./gradlew :composeApp:assembleRelease` (targets the Railway production API by default; see section 6 to point at another backend).
 3. Redeploy the backend the same way as before (push to the connected branch — Railway auto-deploys on push once connected; `prisma migrate deploy` only ever applies migrations that haven't run yet, so redeploying is always safe to repeat).
 4. Distribute the new APK the same way as the first one.
 
