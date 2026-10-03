@@ -1,6 +1,5 @@
 package com.lifeos.app.features.planner.data.repository
 
-import com.lifeos.app.core.date.AppToday
 import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.core.network.AuthTokenProvider
 import com.lifeos.app.core.network.HttpClientFactory
@@ -53,7 +52,7 @@ class PlannerRepositoryImplTest {
         handler()
     }
 
-    private val repository = PlannerRepositoryImpl(
+    private fun repositoryAt(today: LocalDate) = PlannerRepositoryImpl(
         remoteDataSource = PlannerRemoteDataSource(
             HttpClientFactory.create(
                 engine = engine,
@@ -63,7 +62,10 @@ class PlannerRepositoryImplTest {
                 },
             ),
         ),
+        today = { today },
     )
+
+    private val repository = repositoryAt(FIXED_TODAY)
 
     @Test
     fun getDashboard_mapsBackendDtoToDomain() = runTest {
@@ -279,7 +281,7 @@ class PlannerRepositoryImplTest {
 
     @Test
     fun getDashboard_usesRealTaskCountsForCurrentMonth() = runTest {
-        val today = AppToday.date
+        val today = FIXED_TODAY
         routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
         routes["GET planner/tasks"] = {
             respondJson(
@@ -331,6 +333,87 @@ class PlannerRepositoryImplTest {
         val dashboard = repository.getDashboard().getOrThrow()
 
         assertTrue(dashboard.calendar.days.all { it.taskCount == 0 })
+    }
+
+    @Test
+    fun getDashboard_sendsLocalDate_andUsesItForCalendarAndDashboardDate() = runTest {
+        routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        val dashboard = repository.getDashboard().getOrThrow()
+
+        val dashboardRequest = recordedRequests.single { it.routeKey() == "GET planner/dashboard" }
+        assertEquals("2026-10-02", dashboardRequest.url.parameters["date"])
+        assertEquals(setOf("date"), dashboardRequest.url.parameters.names())
+        val range = tasksRequests().single().url.parameters
+        assertEquals("2026-10-01", range["dueAfter"])
+        assertEquals("2026-10-31", range["dueBefore"])
+        assertEquals(FIXED_TODAY, dashboard.date)
+        assertEquals(listOf(FIXED_TODAY), dashboard.calendar.days.filter { it.isToday }.map { it.date })
+    }
+
+    @Test
+    fun getDashboard_onLastDayOfMonth_keepsDashboardAndCalendarOnTheSameDay() = runTest {
+        val lastDay = LocalDate(2026, 10, 31)
+        routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        val dashboard = repositoryAt(lastDay).getDashboard().getOrThrow()
+
+        assertEquals("2026-10-31", recordedRequests.single { it.routeKey() == "GET planner/dashboard" }.url.parameters["date"])
+        val range = tasksRequests().single().url.parameters
+        assertEquals("2026-10-01", range["dueAfter"])
+        assertEquals("2026-10-31", range["dueBefore"])
+        assertEquals(lastDay, dashboard.date)
+        assertEquals("Ekim 2026", dashboard.calendar.monthLabel)
+    }
+
+    @Test
+    fun getDashboard_mapsOverdueTasks_includingInProgress() = runTest {
+        routes["GET planner/dashboard"] = {
+            respondJson(
+                """{"data":{
+                  "overdueTasks":[
+                    ${taskJson(id = "late-todo", dueDate = "2026-09-28", dueTime = "\"09:00\"", priority = "HIGH")},
+                    ${taskJson(id = "late-active", dueDate = "2026-09-30", status = "IN_PROGRESS")}
+                  ],
+                  "todayTasks":[${taskJson(id = TASK_ID)}],
+                  "upcomingTasks":[],
+                  "completedCount":0,"pendingCount":3,"progressPercentage":0}}""",
+            )
+        }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        val dashboard = repository.getDashboard().getOrThrow()
+
+        assertEquals(listOf("late-todo", "late-active"), dashboard.overdueTasks.map { it.id })
+        val first = dashboard.overdueTasks.first()
+        assertEquals(TaskDueDate(LocalDate(2026, 9, 28), LocalTime(9, 0)), first.dueDate)
+        assertEquals(TaskPriority.HIGH, first.priority)
+        assertEquals(TaskStatus.IN_PROGRESS, dashboard.overdueTasks[1].status)
+        assertEquals(listOf(TASK_ID), dashboard.todayTasks.map { it.id })
+    }
+
+    @Test
+    fun getDashboard_withoutOverdueTasksField_mapsToEmptyList() = runTest {
+        // EMPTY_DASHBOARD_JSON has no "overdueTasks" key at all, like a backend older than PR #5.
+        routes["GET planner/dashboard"] = { respondJson(EMPTY_DASHBOARD_JSON) }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        assertEquals(emptyList(), repository.getDashboard().getOrThrow().overdueTasks)
+    }
+
+    /** Same documented behavior as [getDashboard_withUnknownEnumValue_failsWholeDashboard]: `valueOf` mapping applies to overdue tasks too. */
+    @Test
+    fun getDashboard_withUnknownEnumInOverdueTasks_failsWholeDashboard() = runTest {
+        routes["GET planner/dashboard"] = {
+            respondJson(
+                """{"data":{"overdueTasks":[${taskJson(id = "late", dueDate = "2026-09-30", status = "BLOCKED")}],"todayTasks":[],"upcomingTasks":[],"completedCount":0,"pendingCount":1,"progressPercentage":0}}""",
+            )
+        }
+        routes["GET planner/tasks"] = { respondJson(pageJson(tasks = emptyList())) }
+
+        assertIs<IllegalArgumentException>(repository.getDashboard().exceptionOrNull())
     }
 
     @Test
@@ -535,6 +618,7 @@ class PlannerRepositoryImplTest {
         const val ACCESS_TOKEN = "test-access-token"
         const val TASK_ID = "11111111-1111-1111-1111-111111111111"
         const val OTHER_TASK_ID = "22222222-2222-2222-2222-222222222222"
+        val FIXED_TODAY = LocalDate(2026, 10, 2)
         const val EMPTY_DASHBOARD_JSON =
             """{"data":{"todayTasks":[],"upcomingTasks":[],"completedCount":0,"pendingCount":0,"progressPercentage":0}}"""
     }

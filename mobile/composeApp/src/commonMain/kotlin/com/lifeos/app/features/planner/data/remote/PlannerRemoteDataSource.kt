@@ -35,8 +35,16 @@ import kotlinx.datetime.LocalDate
  */
 class PlannerRemoteDataSource(private val httpClient: HttpClient) {
 
-    suspend fun getDashboard(): PlannerDashboardDto =
-        httpClient.get(endpoint("planner/dashboard")).dataOrThrow()
+    /**
+     * [date] is the caller's local "today" (`YYYY-MM-DD` via [LocalDate.toString]):
+     * the backend splits overdue/today/upcoming around it, so the dashboard
+     * matches the day the device is actually in rather than the profile
+     * timezone's or the server's.
+     */
+    suspend fun getDashboard(date: LocalDate): PlannerDashboardDto =
+        httpClient.get(endpoint("planner/dashboard")) {
+            parameter("date", date.toString())
+        }.dataOrThrow()
 
     /**
      * One page of `GET /planner/tasks`, sorted by due date. Both date bounds

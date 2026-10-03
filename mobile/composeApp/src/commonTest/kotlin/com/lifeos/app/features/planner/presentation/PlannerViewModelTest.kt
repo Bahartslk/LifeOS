@@ -190,6 +190,7 @@ class PlannerViewModelTest {
             aiInsightMessage = "",
             overview = PlannerOverview(totalTaskCount = 1, upcomingEventCount = 0, completedTaskCount = 0, productivityPercent = 0),
             calendar = EMPTY_CALENDAR,
+            overdueTasks = emptyList(),
             todayTasks = emptyList(),
             upcomingTasks = emptyList(),
         )

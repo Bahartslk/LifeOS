@@ -28,9 +28,8 @@ import com.lifeos.app.core.designsystem.theme.LifeOSTheme
 import com.lifeos.app.core.presentation.CollectActions
 import com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource
 import com.lifeos.app.features.planner.domain.model.PlannerDashboard
-import com.lifeos.app.features.planner.domain.model.Task
-import com.lifeos.app.features.planner.domain.model.TaskCategory
 import com.lifeos.app.features.planner.presentation.sections.CategorySection
+import com.lifeos.app.features.planner.presentation.sections.OverdueTasksSection
 import com.lifeos.app.features.planner.presentation.sections.PlannerCalendarSection
 import com.lifeos.app.features.planner.presentation.sections.PlannerFab
 import com.lifeos.app.features.planner.presentation.sections.PlannerHeader
@@ -123,7 +122,7 @@ private fun PlannerScreen(
                 count = LOADING_SKELETON_COUNT,
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
             )
-            dashboard.todayTasks.isEmpty() && dashboard.upcomingTasks.isEmpty() -> EmptyState(
+            !plannerHasAnyTasks(dashboard) -> EmptyState(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 title = PlannerStrings.EMPTY_TITLE,
                 description = PlannerStrings.EMPTY_DESCRIPTION,
@@ -139,6 +138,11 @@ private fun PlannerScreen(
     }
 }
 
+/**
+ * The loaded dashboard. "Gecikmiş Görevler" sits above today's tasks and is
+ * only rendered when the (category-filtered) overdue list is non-empty;
+ * see [taskListsFor]/[plannerHasAnyTasks].
+ */
 @Composable
 private fun PlannerContent(
     uiState: PlannerUiState,
@@ -147,8 +151,7 @@ private fun PlannerContent(
     modifier: Modifier = Modifier,
 ) {
     val selectedCategory = uiState.selectedCategory
-    val filteredTodayTasks = dashboard.todayTasks.filterByCategory(selectedCategory)
-    val filteredUpcomingTasks = dashboard.upcomingTasks.filterByCategory(selectedCategory)
+    val taskLists = dashboard.taskListsFor(selectedCategory)
 
     LazyColumn(
         modifier = modifier,
@@ -189,9 +192,19 @@ private fun PlannerContent(
                 modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
             )
         }
+        if (taskLists.overdue.isNotEmpty()) {
+            item {
+                OverdueTasksSection(
+                    tasks = taskLists.overdue,
+                    onTaskToggled = { taskId -> onEvent(PlannerEvent.TaskToggled(taskId)) },
+                    onTaskClicked = { taskId -> onEvent(PlannerEvent.TaskClicked(taskId)) },
+                    modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
+                )
+            }
+        }
         item {
             TodayTasksSection(
-                tasks = filteredTodayTasks,
+                tasks = taskLists.today,
                 onTaskToggled = { taskId -> onEvent(PlannerEvent.TaskToggled(taskId)) },
                 onTaskClicked = { taskId -> onEvent(PlannerEvent.TaskClicked(taskId)) },
                 modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
@@ -199,7 +212,7 @@ private fun PlannerContent(
         }
         item {
             UpcomingTasksSection(
-                tasks = filteredUpcomingTasks,
+                tasks = taskLists.upcoming,
                 onTaskClicked = { taskId -> onEvent(PlannerEvent.TaskClicked(taskId)) },
                 modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
             )
@@ -212,10 +225,6 @@ private fun PlannerContent(
         }
     }
 }
-
-/** "Quick Categories" filtering — presentation-layer derived state, never mutating the dashboard's own lists. */
-private fun List<Task>.filterByCategory(category: TaskCategory?): List<Task> =
-    if (category == null) this else filter { it.category == category }
 
 private const val LOADING_SKELETON_COUNT = 4
 
@@ -247,7 +256,8 @@ private fun PlannerScreenErrorPreview() {
 @Composable
 private fun PlannerScreenEmptyPreview() {
     LifeOSTheme {
-        val dashboard = FakePlannerDataSource().getDashboard().copy(todayTasks = emptyList(), upcomingTasks = emptyList())
+        val dashboard = FakePlannerDataSource().getDashboard()
+            .copy(overdueTasks = emptyList(), todayTasks = emptyList(), upcomingTasks = emptyList())
         PlannerScreen(
             uiState = PlannerUiState(isLoading = false, dashboard = dashboard),
             snackbarHostState = remember { SnackbarHostState() },

@@ -40,6 +40,8 @@ import kotlinx.datetime.plus
  */
 class PlannerRepositoryImpl(
     private val remoteDataSource: PlannerRemoteDataSource,
+    /** The device's local date; a parameter only so tests can pin it. */
+    private val today: () -> LocalDate = { AppToday.date },
 ) : PlannerRepository {
 
     /**
@@ -48,19 +50,23 @@ class PlannerRepositoryImpl(
      * fails, the dashboard is still returned with every calendar day's
      * `taskCount` left at 0, rather than failing the whole screen over its
      * smallest widget.
+     *
+     * "Today" is read once and reused for the dashboard's `?date=`, the
+     * calendar month and [PlannerDashboard.date], so all three always agree
+     * — even if the call straddles midnight.
      */
     override suspend fun getDashboard(): Result<PlannerDashboard> = try {
-        val today = AppToday.date
+        val currentDate = today()
         coroutineScope {
-            val monthTasks = async { monthTasksOrNull(today.year, today.monthNumber) }
-            val dto = remoteDataSource.getDashboard()
+            val monthTasks = async { monthTasksOrNull(currentDate.year, currentDate.monthNumber) }
+            val dto = remoteDataSource.getDashboard(currentDate)
             val calendar = CalendarMonthBuilder.build(
-                year = today.year,
-                month = today.monthNumber,
+                year = currentDate.year,
+                month = currentDate.monthNumber,
                 tasks = monthTasks.await().orEmpty(),
-                today = today,
+                today = currentDate,
             )
-            Result.success(dto.toDomain(date = today, calendar = calendar))
+            Result.success(dto.toDomain(date = currentDate, calendar = calendar))
         }
     } catch (e: CancellationException) {
         throw e

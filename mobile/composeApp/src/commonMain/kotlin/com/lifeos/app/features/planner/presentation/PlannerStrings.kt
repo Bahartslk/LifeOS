@@ -44,6 +44,12 @@ internal object PlannerStrings {
     const val TASK_TOGGLE_CONTENT_DESCRIPTION = "Görev durumunu değiştir"
     const val DUE_DATE_NOW_SUFFIX = "Şimdi"
 
+    // Overdue Tasks — unfinished tasks due before today (the dashboard's overdueTasks).
+    const val OVERDUE_TASKS_TITLE = "Gecikmiş Görevler"
+    const val OVERDUE_LABEL = "Gecikti"
+
+    fun overdueDueDateLabel(dateLabel: String): String = "$OVERDUE_LABEL · $dateLabel"
+
     // Upcoming Tasks — "Yaklaşan Önemli Tarihler"
     const val UPCOMING_TASKS_TITLE = "Yaklaşan Önemli Tarihler"
     const val UPCOMING_TASKS_EMPTY_TITLE = "Yaklaşan önemli bir tarih yok"
