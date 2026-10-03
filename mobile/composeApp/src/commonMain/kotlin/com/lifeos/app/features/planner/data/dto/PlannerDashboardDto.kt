@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class PlannerDashboardDto(
+    /** Defaults to empty so a response from a backend older than this field still decodes. */
+    val overdueTasks: List<TaskDto> = emptyList(),
     val todayTasks: List<TaskDto>,
     val upcomingTasks: List<TaskDto>,
     val completedCount: Int,

@@ -27,7 +27,7 @@ The project has gone through a staged backend-integration migration, replacing a
 | Module | Status | Notes |
 | --- | --- | --- |
 | **Authentication** | ✅ Fully integrated | Register, login, session persistence, automatic bearer-token injection and refresh-on-401 |
-| **Planner** | ✅ Fully integrated | Dashboard, task list, task detail, create/delete/toggle-complete tasks, all against the real backend |
+| **Planner** | ✅ Fully integrated | Dashboard (overdue / today / upcoming, split around the device's local date), calendar, task detail, create/delete/toggle-complete tasks, all against the real backend |
 | **Travel** | ✅ Fully integrated | Trip list, trip detail, create/update/delete trips, real itinerary timeline and statistics |
 | **Home Dashboard** | ✅ Fully integrated | Real greeting, Planner-derived task stats and priorities, Travel-derived upcoming-trip card and highlights — no fabricated data |
 | **Profile** | 🔶 UI complete, local-only | Theme preference persists on-device; backend `users` API already exists but isn't wired up yet |

@@ -16,12 +16,19 @@ import kotlinx.datetime.LocalDate
  * itself, it can now do so directly off [Task.dueDate] (a real
  * [kotlinx.datetime.LocalDate]) instead of needing this same
  * already-bucketed shape repeated.
+ *
+ * [overdueTasks] are unfinished tasks due before [date], as classified by
+ * the backend (`GET /planner/dashboard`). Being in this list *is* what
+ * makes a task overdue on mobile — there is deliberately no client-side
+ * `Task.isOverdue` rule that could disagree with the server's. The three
+ * task lists never overlap.
  */
 data class PlannerDashboard(
     val date: LocalDate,
     val aiInsightMessage: String,
     val overview: PlannerOverview,
     val calendar: PlannerCalendarMonth,
+    val overdueTasks: List<Task>,
     val todayTasks: List<Task>,
     val upcomingTasks: List<Task>,
 )

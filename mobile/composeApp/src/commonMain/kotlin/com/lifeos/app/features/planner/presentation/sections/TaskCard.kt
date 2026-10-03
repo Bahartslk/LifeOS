@@ -58,6 +58,10 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
  * completed status text, a high-priority badge, or a tag count (Stitch's
  * "+4" on "Ekip Toplantısı" — this app's [Task.tags] holds the four
  * attendee names, so the count is real data, not a magic string).
+ *
+ * [isOverdue] is decided by the caller (the dashboard's `overdueTasks`
+ * membership), never by [Task] itself: the date line then reads
+ * "Gecikti · <date>" in the theme's error color.
  */
 @Composable
 fun TaskCard(
@@ -65,6 +69,7 @@ fun TaskCard(
     onToggle: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isOverdue: Boolean = false,
 ) {
     val isCompleted = task.status == TaskStatus.DONE
     val isActive = task.status == TaskStatus.IN_PROGRESS
@@ -86,9 +91,9 @@ fun TaskCard(
             Spacer(modifier = Modifier.width(LifeOSSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = task.dueDateDisplayLabel(),
+                    text = if (isOverdue) task.overdueDueDateLabel() else task.dueDateDisplayLabel(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = task.title,
@@ -147,6 +152,14 @@ internal fun Task.dueDateDisplayLabel(): String {
     val base = RelativeDateFormatter.format(dueDate.date, dueDate.time)
     return if (status == TaskStatus.IN_PROGRESS) "$base – ${PlannerStrings.DUE_DATE_NOW_SUFFIX}" else base
 }
+
+/**
+ * "Gecikti · 28 Eylül" for a task in the dashboard's overdue list. Uses the
+ * plain relative date — no "– Şimdi" suffix, which would be misleading on
+ * a task whose day has already passed.
+ */
+internal fun Task.overdueDueDateLabel(): String =
+    PlannerStrings.overdueDueDateLabel(RelativeDateFormatter.format(dueDate.date, dueDate.time))
 
 @Preview
 @Composable

@@ -107,6 +107,23 @@ class FakePlannerDataSource {
         ),
     )
 
+    /** Preview-only sample for the dashboard's "Gecikmiş Görevler" section — an unfinished task due before [todayTasks]' day. */
+    private val overdueTasks = listOf(
+        Task(
+            id = "task-overdue-invoice",
+            title = "Fatura Ödemesi",
+            description = null,
+            dueDate = TaskDueDate(date = LocalDate(2024, 10, 21), time = null),
+            priority = TaskPriority.HIGH,
+            category = TaskCategory.FINANCE,
+            status = TaskStatus.TODO,
+            source = TaskSource.PLANNER,
+            tags = emptyList(),
+            hasReminder = false,
+            createdAt = LocalDate(2024, 10, 15),
+        ),
+    )
+
     private val upcomingTasks = mutableListOf(
         Task(
             id = "task-cappadocia-trip",
@@ -186,6 +203,7 @@ class FakePlannerDataSource {
             productivityPercent = PRODUCTIVITY_PERCENT,
         ),
         calendar = calendarMonth(AppToday.date.year, AppToday.date.monthNumber),
+        overdueTasks = overdueTasks,
         todayTasks = todayTasks.toList(),
         upcomingTasks = upcomingTasks.toList(),
     )
