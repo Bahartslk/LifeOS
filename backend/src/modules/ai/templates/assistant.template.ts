@@ -2,10 +2,10 @@ import { PromptTemplate } from '../interfaces/prompt-template.interface';
 import { BASE_SYSTEM_TEMPLATE } from './base-system.template';
 import { formatPlannerContext, formatTravelContext } from './format-context.util';
 
-/** Base system prompt plus both Planner and Travel context — for a general assistant that may need to reason across both, e.g. "what does my week look like". */
+/** Base system prompt plus both Planner and Travel context — for a general assistant that may need to reason across both, e.g. "what does my week look like". `v2` (Planner Step 3): the Planner block now also lists overdue tasks. */
 export const ASSISTANT_TEMPLATE: PromptTemplate = {
   id: 'assistant',
-  version: 'v1',
+  version: 'v2',
   renderSystem(context, variables) {
     const plannerBlock = context.planner
       ? formatPlannerContext(context.planner)

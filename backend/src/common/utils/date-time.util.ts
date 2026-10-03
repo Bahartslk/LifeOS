@@ -40,3 +40,39 @@ export function fromDbDate(date: Date): string {
 export function fromDbTime(time: Date | null): string | null {
   return time ? time.toISOString().slice(11, 16) : null;
 }
+
+/**
+ * The calendar date ("YYYY-MM-DD") `instant` falls on in the IANA
+ * `timeZone` (e.g. "Europe/Istanbul") — the single place a server-side
+ * "which day is it for this user" question is answered, shared by
+ * Planner's dashboard and the AI prompt's "today's date" anchor. Assembled
+ * from `formatToParts` rather than relying on a locale's output format.
+ * Falls back to the UTC date if `timeZone` is not a valid IANA name
+ * (defensive: `User.timezone` is DTO-validated at write time, but a date
+ * lookup should never throw over it).
+ */
+export function dateInTimeZone(instant: Date, timeZone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(instant);
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+    const year = part('year');
+    const month = part('month');
+    const day = part('day');
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch {
+    // Invalid IANA name — fall through to the UTC date.
+  }
+  return instant.toISOString().slice(0, 10);
+}
+
+/** Today's calendar date ("YYYY-MM-DD") in `timeZone`; `now` is a parameter only so callers' tests can pin the clock. */
+export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
+  return dateInTimeZone(now, timeZone);
+}

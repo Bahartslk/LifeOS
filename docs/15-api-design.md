@@ -134,6 +134,17 @@ Implemented in Sprint 15.0 (Planner Backend) under `/planner/tasks`/`/planner/da
 | PATCH | `/api/v1/planner/tasks/:id/incomplete` | FR-PLANNER-03 | Yes |
 | GET | `/api/v1/planner/dashboard` | FR-PLANNER-04, FR-HOME-01 | Yes |
 
+**`GET /api/v1/planner/dashboard?date=YYYY-MM-DD`.** `date` is optional: the caller's own local "today" (the mobile client sends its device date). If it is omitted, the server uses today in the caller's `User.timezone`, never its own UTC date, which in Turkey is still "yesterday" between 00:00 and 03:00. An invalid format or impossible calendar date returns `400`. Response lists, all relative to that "today":
+
+- `overdueTasks`: unfinished (`TODO`/`IN_PROGRESS`) tasks due before today, ordered by due date, due time and creation time. This is date-based only: a task due today is never overdue, even after its due time.
+- `todayTasks`: tasks due today, any status.
+- `upcomingTasks`: tasks due after today, any status.
+- `highPriorityTasks`: unfinished `HIGH` tasks from the three lists above.
+- `travelTasks`: `source = TRAVEL` tasks from `todayTasks` and `upcomingTasks`.
+- `completedCount`, `pendingCount` and `progressPercentage` are all-time totals over the caller's active tasks, so they include overdue tasks.
+
+`overdueTasks`, `todayTasks` and `upcomingTasks` never overlap. `overdueTasks` is an additive field: clients that ignore unknown keys are unaffected.
+
 `task-lists` endpoints (`GET`/`POST`/`PATCH`/`DELETE /api/v1/task-lists`, FR-PLANNER-02) remain undelivered — the `TaskList`/`TaskListType` schema exists (Sprint 15.0), but no controller: that sprint's explicit 8-route API list had no task-list routes, so lists can currently only be created directly in the database. See `backend/src/modules/README.md` for the suggested next step.
 
 ### Planner AI Capabilities

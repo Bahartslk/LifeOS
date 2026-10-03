@@ -52,6 +52,7 @@ function toTaskSummary(task: TaskResponseDto): AiPlannerTaskSummary {
 
 export function toPlannerContext(dashboard: PlannerDashboardResponseDto): AiPlannerContext {
   return {
+    overdueTasks: dashboard.overdueTasks.slice(0, MAX_CONTEXT_TASKS_PER_SECTION).map(toTaskSummary),
     todayTasks: dashboard.todayTasks.slice(0, MAX_CONTEXT_TASKS_PER_SECTION).map(toTaskSummary),
     upcomingTasks: dashboard.upcomingTasks
       .slice(0, MAX_CONTEXT_TASKS_PER_SECTION)

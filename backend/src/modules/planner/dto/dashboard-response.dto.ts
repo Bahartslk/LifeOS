@@ -2,8 +2,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import { TaskResponseDto } from './task-response.dto';
 
 /**
- * `GET /planner/dashboard`'s response — the exact 7 fields Sprint 15.0's
- * brief lists. Not identical to either of mobile's two existing
+ * `GET /planner/dashboard`'s response — the 7 fields Sprint 15.0's brief
+ * lists, plus `overdueTasks` (Planner Step 3). "Today" is the caller's
+ * local date (see `DashboardQueryDto`). Not identical to either of mobile's two existing
  * dashboard-shaped models (`PlannerDashboard`, AI Assistant's
  * `AiTaskContext`) — it's a new, backend-computed synthesis of both (see
  * `PlannerService.getDashboard`'s doc comment for the exact derivation of
@@ -13,6 +14,13 @@ import { TaskResponseDto } from './task-response.dto';
  * "do not modify mobile code" scope.
  */
 export class PlannerDashboardResponseDto {
+  @ApiProperty({
+    type: [TaskResponseDto],
+    description:
+      'Unfinished (TODO/IN_PROGRESS) tasks due before today, oldest first. Date-based: a task due today is never overdue. Never overlaps todayTasks/upcomingTasks.',
+  })
+  overdueTasks!: TaskResponseDto[];
+
   @ApiProperty({ type: [TaskResponseDto] })
   todayTasks!: TaskResponseDto[];
 
@@ -39,7 +47,7 @@ export class PlannerDashboardResponseDto {
   @ApiProperty({
     type: [TaskResponseDto],
     description:
-      'Incomplete (status != DONE), priority HIGH, drawn from todayTasks + upcomingTasks.',
+      'Incomplete (status != DONE), priority HIGH, drawn from overdueTasks + todayTasks + upcomingTasks.',
   })
   highPriorityTasks!: TaskResponseDto[];
 
