@@ -47,9 +47,14 @@ Admin RBAC foundation: `users.role` (`UserRole`: `USER`/`ADMIN`, default
 `USER`), `@Roles(...)` (`common/decorators`) and `RolesGuard`
 (`common/guards`), which decides from the caller's current role in the
 database on every request — the `role` claim now carried in access tokens
-is only a hint for clients. `admin` exposes a single route so far,
-`GET /admin/session`, guarded by `JwtAuthGuard` + `RolesGuard`; later
-admin routes reuse the same guards. Roles change only through
+is only a hint for clients. `admin` exposes four read-only routes behind
+`JwtAuthGuard` + `RolesGuard`: `GET /admin/session`, `/admin/dashboard`,
+`/admin/users` and `/admin/users/:id`. `AdminRepository` is the one place
+that reads across accounts: it selects a fixed list of `users` columns
+(never `passwordHash`) and only counts/aggregates `tasks`, `trips` and
+`refresh_tokens`, so no user content can reach an admin response.
+"Active" figures are derived from refresh-token creation, not real app
+usage (docs/15-api-design.md#admin). Roles change only through
 `src/cli/promote-admin.ts` (`npm run admin:promote`), never through the
 API. The same change added per-IP rate limiting (`@nestjs/throttler`,
 `config/throttle.config.ts`) and a CORS allow-list, and moved the
