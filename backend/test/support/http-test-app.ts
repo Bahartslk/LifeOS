@@ -5,13 +5,15 @@ import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { ThemeMode, User, UserRole } from '@prisma/client';
+import { AdminSeed, createAdminPrismaDelegates } from './in-memory-admin-prisma';
 
 /**
  * Boots the REAL `AppModule` behind the REAL HTTP pipeline (`configureApp`:
  * validation, prefix, versioning, CORS, proxy trust; plus the global
  * throttler, `JwtAuthGuard` and `RolesGuard`) for HTTP-level specs. Only
- * `PrismaService` is replaced, by an in-memory user store, so no database
- * is needed. Access tokens are signed with a throwaway RSA key pair
+ * `PrismaService` is replaced, by an in-memory user store (plus, for the
+ * admin API, the read-only delegates of `in-memory-admin-prisma`), so no
+ * database is needed. Access tokens are signed with a throwaway RSA key pair
  * generated here — never a real key. The app listens on a random local
  * port and specs talk to it over real HTTP with Node's built-in `fetch`.
  *
@@ -62,7 +64,9 @@ type UserWhere = {
   deletedAt?: null;
 };
 
-function createPrismaStub(users: User[]) {
+function createPrismaStub(users: User[], adminSeed: AdminSeed) {
+  const admin = createAdminPrismaDelegates(users, adminSeed);
+
   const matches = (user: User, where: UserWhere) =>
     (where.id === undefined || user.id === where.id) &&
     (where.email === undefined || user.email.toLowerCase() === where.email.equals.toLowerCase()) &&
@@ -74,6 +78,7 @@ function createPrismaStub(users: User[]) {
     $connect: async () => undefined,
     $disconnect: async () => undefined,
     user: {
+      ...admin.user,
       findFirst: jest.fn(
         async ({ where }: { where: UserWhere }) => users.find((u) => matches(u, where)) ?? null,
       ),
@@ -85,7 +90,10 @@ function createPrismaStub(users: User[]) {
       update: jest.fn(),
       updateMany: jest.fn(async () => ({ count: 0 })),
     },
+    task: admin.task,
+    trip: admin.trip,
     refreshToken: {
+      ...admin.refreshToken,
       create: jest.fn(async () => ({})),
       findFirst: jest.fn(async () => null),
       update: jest.fn(),
@@ -127,7 +135,10 @@ export interface HttpTestApp {
   close(): Promise<void>;
 }
 
-export async function createHttpTestApp(users: User[] = []): Promise<HttpTestApp> {
+export async function createHttpTestApp(
+  users: User[] = [],
+  adminSeed: AdminSeed = {},
+): Promise<HttpTestApp> {
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/unused';
   process.env.JWT_ACCESS_TOKEN_PRIVATE_KEY = signingKeys.privateKey;
@@ -141,7 +152,7 @@ export async function createHttpTestApp(users: User[] = []): Promise<HttpTestApp
   const { configureApp } = await import('../../src/app.setup');
   const { PrismaService } = await import('../../src/prisma/prisma.service');
 
-  const prisma = createPrismaStub(users);
+  const prisma = createPrismaStub(users, adminSeed);
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(PrismaService)
     .useValue(prisma)

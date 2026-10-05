@@ -72,8 +72,59 @@ Role-restricted routes for the admin panel, implemented by `AdminModule`. Every 
 | Method | Path | Requirement | Auth Required |
 | --- | --- | --- | --- |
 | GET | `/api/v1/admin/session` | Admin panel session check | Yes (`ADMIN`) |
+| GET | `/api/v1/admin/dashboard` | System-wide aggregate counts | Yes (`ADMIN`) |
+| GET | `/api/v1/admin/users` | Paginated user list (search, filter, sort) | Yes (`ADMIN`) |
+| GET | `/api/v1/admin/users/:id` | One user's account summary and aggregate counts | Yes (`ADMIN`) |
 
-`GET /admin/session` returns the calling admin's own `id`, `email`, `displayName` and `role`. It reads no other user's data; the admin panel calls it after login to confirm, against the backend, that the account really is an admin. Further admin routes (dashboard metrics, user list) will be added under the same prefix and guards.
+All admin routes are **read-only**: there is no admin route that creates, changes or deletes anything. Roles still change only through the `admin:promote` command-line tool (see [Roles](#roles)).
+
+`GET /admin/session` returns the calling admin's own `id`, `email`, `displayName` and `role`. It reads no other user's data; the admin panel calls it after login to confirm, against the backend, that the account really is an admin.
+
+#### What an admin can and cannot see
+
+The admin API exposes account fields and **counts** only. It never returns the content of a user's data, and its queries never load that content from the database in the first place (`AdminRepository` only runs `count`/`groupBy`/`aggregate` on `tasks`, `trips` and `refresh_tokens`, and reads `users` through a fixed column list).
+
+- Returned: `id`, `email`, `displayName`, `role`, `timezone`, `language`, `createdAt`, `updatedAt`, `deletedAt`, `isActive`, the last session time, and task/trip counts by status.
+- Never returned: password hash, refresh tokens or their hashes, `bio`, `avatarUrl`, notification preferences, task titles and descriptions, trip titles, destinations and countries.
+
+#### `GET /admin/dashboard`
+
+Returns `{ users, tasks, trips, generatedAt }`:
+
+| Field | Meaning |
+| --- | --- |
+| `users.total` | Active (not soft-deleted) accounts |
+| `users.deleted` | Soft-deleted accounts |
+| `users.admins` | Active accounts with role `ADMIN` |
+| `users.newLast7Days`, `users.newLast30Days` | Active accounts created in the last 7 / 30 days |
+| `users.activeLast7Days` | Active accounts that **signed in or renewed their session** in the last 7 days — see the note below |
+| `tasks.total`, `todo`, `inProgress`, `done` | Not-deleted tasks of active accounts, by status |
+| `tasks.overdue` | Tasks not `DONE` whose due date is before today (**UTC date**) |
+| `tasks.completionRate` | `done / total` as a whole percentage, `0` when there are no tasks |
+| `trips.total`, `planned`, `ongoing`, `completed`, `cancelled` | Not-deleted trips of active accounts, by status |
+
+> **`activeLast7Days` is not a measure of in-app usage.** The backend records no "last seen" time. The figure counts accounts for which at least one refresh token was created in the period, i.e. a login, a registration or a session renewal. Since the app renews its session roughly every 15 minutes of use, it is a reasonable proxy for "used the app", but an account can appear without the user having done anything in the app, and the figure cannot be read as engagement. The same applies to `lastActiveAt` on the user detail.
+
+The system-wide `tasks.overdue` uses the UTC date because one "today" is needed for all users at once. The user detail below uses that user's own timezone, so around midnight the two can legitimately differ by a day.
+
+#### `GET /admin/users`
+
+Cursor-paginated per [Pagination](#pagination) (`{ data, meta }`).
+
+| Query parameter | Values | Default |
+| --- | --- | --- |
+| `limit` | `1`–`100` | `20` |
+| `cursor` | `meta.nextCursor` of the previous page (a UUID) | — |
+| `q` | 2–100 characters; case-insensitive match in `email` or `displayName` | — |
+| `role` | `USER`, `ADMIN` | — |
+| `status` | `active`, `deleted`, `all` | `active` |
+| `sort` | `createdAt`, `-createdAt`, `email`, `-email` | `-createdAt` |
+
+Soft-deleted accounts are listed only when `status=deleted` or `status=all` is asked for. Any other parameter, or any value outside the ones above, is a `400`. Each item has `id`, `email`, `displayName`, `role`, `timezone`, `createdAt`, `deletedAt` and `isActive`. The list carries no per-user task or trip counts; those are on the detail route only, so a page costs a single query.
+
+#### `GET /admin/users/:id`
+
+Returns the list item's fields plus `language`, `updatedAt`, `lastActiveAt` (creation time of the account's newest refresh token, or `null`) and the user's own `tasks` and `trips` counts in the same shape as the dashboard's. Here `tasks.overdue` is measured against today **in that user's timezone**, the same rule the user's own Planner uses. A soft-deleted account is returned too (`isActive: false`), unlike the default list. A malformed `id` is a `400`, an unknown one a `404`.
 
 ### Trips (Travel)
 
