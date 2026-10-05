@@ -6,8 +6,8 @@
 | --- | --- |
 | Document | Folder Structure |
 | Status | Draft |
-| Version | 1.10.0 |
-| Last Updated | 2026-07-22 |
+| Version | 1.11.0 |
+| Last Updated | 2026-10-05 |
 | Owner | Engineering |
 
 ## Table of Contents
@@ -28,6 +28,7 @@ This document maps the architecture defined in [12-project-architecture.md](12-p
 | --- | --- |
 | `mobile/` | Kotlin / Compose Multiplatform client, organized feature-first per module. |
 | `backend/` | NestJS API, organized feature-first by module with clear layer separation. |
+| `admin/` | React / TypeScript / Vite web panel for administrators; a separate, read-only client of the backend's admin API. |
 | `docs/` | Project documentation; this folder. |
 | `design/` | Design assets, including the Stitch design source (`design/stitch/`) referenced by [06-design-system.md](06-design-system.md) and [05-screen-inventory.md](05-screen-inventory.md). |
 | `docker/` | Docker configuration for local development and deployment. |
@@ -106,6 +107,38 @@ backend/
 
 `modules/` holds one subfolder per feature, registered in `app.module.ts` but implemented one at a time — see [modules/README.md](../backend/src/modules/README.md) for build order and naming notes.
 
+### `admin/`
+
+```
+admin/
+  index.html
+  package.json            # Its own npm project and lockfile; not part of a workspace
+  vite.config.ts          # Vite + Vitest configuration
+  eslint.config.js
+  .env.example            # VITE_API_BASE_URL
+  README.md
+  src/
+    main.tsx              # Entry point: creates the API client, mounts the app
+    app/                  # App, route table (AppRoutes), signed-in layout (AppLayout)
+    core/
+      api/                # apiClient (fetch, envelope, session renewal), errors, in-memory tokenStore
+      auth/               # AuthProvider (session state), RequireAdmin (route guard)
+      config/             # Environment access (API base URL)
+    features/
+      auth/               # LoginPage, AccessDeniedPage
+      dashboard/          # DashboardPage, DashboardCharts, api.ts
+      users/              # UsersPage, UsersFilterBar, UserDetailPage, usersQuery.ts, api.ts
+    shared/
+      ui/                 # Button, Badge, StatCard, ProgressBar, state views, icons
+      hooks/              # useAsync
+      format/             # Date/number/label formatting (tr-TR)
+      stats/              # Task/trip stat types and sections shared by dashboard and user detail
+    styles/               # tokens.css (LifeOS design tokens), base.css, components.css, layout.css
+    test/                 # Test-only helpers: in-memory fake backend, render helpers
+```
+
+Tests sit next to the code they cover as `*.test.ts(x)`. The panel has no `domain`/`data` split inside each feature the way `mobile/` does: a feature's `api.ts` is its data layer, and the read-only screens carry no business rules of their own. See [12-project-architecture.md](12-project-architecture.md#admin-web-client).
+
 ### `docs/`
 
 ```
@@ -149,8 +182,9 @@ Additional Docker services introduced as the deployment scales out — connectio
 
 - Mobile feature folders use lowercase, single-word names matching the module names in [01-project-overview.md](01-project-overview.md#core-modules) (`auth`, `home`, `aiassistant`, `travel`, `planner`, `profile`).
 - Backend module folders use lowercase, plural resource names matching their primary entity (`users`, `trips`, `tasks`), except `auth` and `ai`, which are capability-named rather than resource-named.
+- Admin web feature folders use lowercase names matching the screen area (`auth`, `dashboard`, `users`); React component files are `PascalCase.tsx`, other modules `camelCase.ts`.
 - Documentation files use the `NN-kebab-case-name.md` convention already established in `docs/`, preserving numeric ordering.
 
 ## Notes
 
-Any structural change to `mobile/` or `backend/` that deviates from this layout should update this document in the same change, per the [Documentation Rules](../CLAUDE.md#documentation-rules) in `CLAUDE.md`.
+Any structural change to `mobile/`, `backend/` or `admin/` that deviates from this layout should update this document in the same change, per the [Documentation Rules](../CLAUDE.md#documentation-rules) in `CLAUDE.md`.

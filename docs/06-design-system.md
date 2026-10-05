@@ -120,3 +120,5 @@ Components map to screens defined in [05-screen-inventory.md](05-screen-inventor
 ## Notes
 
 The Stitch design source in `design/stitch/` is the visual source of truth for exact spacing, color values, and component states. This document defines the system-level rules that those designs must follow and that the implementation in `mobile/` must respect.
+
+The admin web panel (`admin/`) follows the same system. Its `src/styles/tokens.css` restates the mobile theme's color, shape and spacing tokens as CSS custom properties (light and dark), so a token changed in `mobile/.../core/designsystem/theme` must be changed there too.

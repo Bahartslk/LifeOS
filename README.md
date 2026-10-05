@@ -31,6 +31,7 @@ The project has gone through a staged backend-integration migration, replacing a
 | **Travel** | ✅ Fully integrated | Trip list, trip detail, create/update/delete trips, real itinerary timeline and statistics |
 | **Home Dashboard** | ✅ Fully integrated | Real greeting, Planner-derived task stats and priorities, Travel-derived upcoming-trip card and highlights — no fabricated data |
 | **Profile** | 🔶 UI complete, local-only | Theme preference persists on-device; backend `users` API already exists but isn't wired up yet |
+| **Admin Panel (web)** | ✅ Built, not deployed | Read-only web panel for administrators: dashboard, user list and user detail on the real admin API, behind backend role checks. See [`admin/README.md`](admin/README.md) |
 | **AI Assistant** | 🔶 UI complete, local-only | Reads real Planner data for its progress summary; backend AI capabilities (Gemini/OpenRouter) exist but the client doesn't call them yet |
 
 Across every integrated module, the project deliberately never synthesizes fake business data to fill a gap — where the backend has no data for something (e.g. trip weather, flight details, week-over-week productivity trend), the UI shows a real empty state instead of a placeholder value.
@@ -44,6 +45,8 @@ Across every integrated module, the project deliberately never synthesizes fake 
 | Mobile / Client | Ktor Client 3 (networking, JWT bearer + auto-refresh) |
 | Mobile / Client | Kotlinx Serialization, kotlinx-datetime |
 | Mobile / Client | Coil (image loading), Compose Multiplatform Navigation |
+| Admin Web | React 19, TypeScript, Vite, React Router 7 |
+| Admin Web | Vitest + Testing Library; plain CSS with shared design tokens |
 | Backend | NestJS 10, Prisma 5 (ORM) |
 | Database | PostgreSQL |
 | Infrastructure | Docker / Docker Compose |
@@ -88,6 +91,12 @@ LifeOS/
 │           ├── users/       Profile + preferences
 │           ├── ai/          Provider-agnostic AI infrastructure (Gemini, OpenRouter)
 │           └── daily-brief/ Cross-module (Planner + Travel) AI feature
+├── admin/                   React / TypeScript / Vite web panel for administrators
+│   └── src/
+│       ├── app/             Route table and signed-in layout
+│       ├── core/            API client, in-memory session, route guard, config
+│       ├── features/        auth, dashboard, users
+│       └── shared/          UI components, hooks, formatting
 ├── docs/                    Product vision, architecture, API design, and process docs
 ├── design/                  Design assets and design-system references
 └── docker/                  Local Postgres / full-stack Docker Compose setup
@@ -116,6 +125,16 @@ npm run prisma:generate
 npm run prisma:migrate:dev
 npm run start:dev         # http://localhost:3000, Swagger at /api/docs
 ```
+
+### Admin panel
+
+```bash
+cd admin
+npm install
+npm run dev               # http://localhost:5173, talks to the backend on http://localhost:3000
+```
+
+Signing in needs an account with the `ADMIN` role; see [`admin/README.md`](admin/README.md#local-development).
 
 ### Mobile
 

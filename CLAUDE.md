@@ -1,6 +1,6 @@
 # LifeOS Overview
 
-LifeOS is a personal life management platform combining a Kotlin/Compose Multiplatform client with a NestJS backend and integrated AI capabilities. This document is the permanent engineering guide for Claude Code throughout the LifeOS development lifecycle. It defines architecture, conventions, and responsibilities that must be respected in every change made to this codebase.
+LifeOS is a personal life management platform combining a Kotlin/Compose Multiplatform client with a NestJS backend and integrated AI capabilities, plus a React web panel for administrators. This document is the permanent engineering guide for Claude Code throughout the LifeOS development lifecycle. It defines architecture, conventions, and responsibilities that must be respected in every change made to this codebase.
 
 # Product Vision
 
@@ -18,6 +18,11 @@ Detailed product vision is maintained in [docs/02-product-vision.md](docs/02-pro
 | Mobile / Client | Ktor Client (Networking) |
 | Mobile / Client | Coil (Image Loading) |
 | Mobile / Client | Navigation (Compose Multiplatform Navigation) |
+| Admin Web | React |
+| Admin Web | TypeScript |
+| Admin Web | Vite |
+| Admin Web | React Router |
+| Admin Web | Vitest + Testing Library |
 | Backend | NestJS |
 | Backend | Prisma (ORM) |
 | Database | PostgreSQL |
@@ -42,6 +47,7 @@ The following architectural rules are mandatory across the project:
 ```
 mobile/
 backend/
+admin/
 docs/
 design/
 docker/
@@ -49,6 +55,7 @@ docker/
 
 - **mobile/** — Kotlin / Compose Multiplatform client application. Contains feature modules, shared UI components, and platform-specific entry points.
 - **backend/** — NestJS backend application. Contains API modules, business logic, database access, and authentication.
+- **admin/** — React / TypeScript / Vite web panel for administrators. A separate, independent frontend with its own `package.json`; a read-only client of the backend's admin API. Not part of the mobile app.
 - **docs/** — Project documentation (vision, requirements, architecture, guidelines). Source of truth for product and technical decisions.
 - **design/** — Design assets, UI references, and design system source files.
 - **docker/** — Docker configuration for local development and deployment (containers, compose files, environment setup).
@@ -73,6 +80,20 @@ docker/
 - Support dark mode across all screens and components.
 - Follow accessibility best practices (content descriptions, sufficient contrast, touch target sizing).
 - Design layouts to be responsive across different screen sizes and orientations.
+
+# Admin Web Guidelines
+
+- `admin/` is an independent frontend: its own dependencies, scripts, and tests. It shares no code with `mobile/` and must not be folded into it.
+- Organize by feature (`features/auth`, `features/dashboard`, `features/users`); pages call their feature's `api.ts`, and only `core/api/apiClient` calls `fetch`.
+- Keep dependencies minimal: React, React Router, and plain CSS with custom properties. Do not add a UI framework, an HTTP library, or a state/query library without an explicit decision.
+- Keep both auth tokens in memory only. Never use `localStorage`, `sessionStorage`, cookies, or IndexedDB for tokens or session data.
+- Session renewal must stay single-flight: one refresh call for any number of concurrent `401`s, and never a refresh or retry on `403`.
+- The backend's RBAC is the security boundary. Confirm admin access with `GET /admin/session`; never grant access based on a role held in the frontend.
+- Display only what the admin API contract returns. Never render password hashes, tokens, or the content of a user's tasks and trips.
+- Reuse the LifeOS design tokens (`admin/src/styles/tokens.css`, mirroring the mobile theme); UI text is Turkish, code is English.
+- Do not use mock or placeholder data in the application. Fakes belong in `src/test/` only.
+- Every change must pass `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` in `admin/`, and be formatted with the backend's Prettier configuration.
+- Production-affecting steps for the panel — hosting, `CORS_ALLOWED_ORIGINS`, granting the `ADMIN` role — are deliberate, separately approved actions, never a side effect of a code change.
 
 # Backend Guidelines
 

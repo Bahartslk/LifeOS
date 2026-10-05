@@ -10,6 +10,14 @@ backend/dist/
 backend/coverage/
 backend/generated/
 
+# --- Admin web (React / Vite) ---
+admin/node_modules/
+admin/dist/
+admin/coverage/
+admin/.env
+admin/.env.*
+!admin/.env.example
+
 # --- Mobile (Kotlin Multiplatform / Compose Multiplatform) ---
 mobile/.gradle/
 mobile/build/
