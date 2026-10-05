@@ -85,3 +85,20 @@ Debug builds are unaffected by all of this — they always use `http://10.0.2.2:
 4. Distribute the new APK the same way as the first one.
 
 For an actual Play Store release later (not needed for mentor testing): generate a real upload keystore and replace `signingConfig = signingConfigs.getByName("debug")` in the release build type with a proper `signingConfigs.create("release") { ... }` referencing it — flagged directly in `build.gradle.kts` where that line lives.
+
+## 8. Admin web panel (not deployed yet)
+
+The admin panel in `admin/` (see [`admin/README.md`](../admin/README.md)) is **not deployed**. It has been run and tested only locally, against a local backend and database. Nothing in sections 1–7 changes because of it: Railway keeps building only `backend/`.
+
+When it is deployed, these steps are needed — each one deliberate and separate from merging code:
+
+1. **Host the static build.** `cd admin && npm ci && npm run build` produces `admin/dist/`. Any static host works; it must serve `index.html` for unknown paths (single-page-application fallback), because routes such as `/users/<id>` exist only in the browser.
+2. **Point it at the backend.** Set `VITE_API_BASE_URL` at build time to the backend origin, without `/api/v1` (for production: `https://lifeos-production-532b.up.railway.app`). `VITE_*` values end up in the public bundle; they are configuration, never secrets.
+3. **Allow the panel's origin on the backend.** Add the panel's public URL to the backend's `CORS_ALLOWED_ORIGINS` variable (comma-separated). With `NODE_ENV=production` and this variable empty, the backend allows no cross-origin browser requests, so the panel cannot work until it is set. This is a Railway variable change and restarts the backend.
+4. **Grant an admin account.** No account is an admin by default and no API request can change a role. Run the backend's tool against the production database, dry run first:
+   ```
+   npm run admin:promote -- <email>
+   npm run admin:promote -- <email> --confirm
+   ```
+
+Until steps 3 and 4 are done, production is unaffected by the panel's existence: the `/admin/*` routes answer `401`/`403` to everyone.

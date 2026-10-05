@@ -1,0 +1,90 @@
+/*
+ * LifeOS design tokens for the web, taken from the mobile app's Material 3
+ * theme (mobile/.../core/designsystem/theme/Color.kt, Shape.kt, Dimens.kt)
+ * so both clients share one visual identity. Change a value there and here
+ * together. See docs/06-design-system.md.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Brand */
+  --color-primary: #7c3aed; /* LifeOSVioletBase */
+  --color-primary-dark: #5b21b6; /* LifeOSVioletDeep */
+  --color-primary-bright: #9333ea; /* LifeOSVioletBright */
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ede7fe; /* LifeOSVioletContainerLight */
+  --color-on-primary-container: #4c1d95; /* LifeOSVioletContainerDark */
+  --color-tertiary: #0f9488; /* LifeOSTealBase */
+  --color-tertiary-container: #ccfbf1; /* LifeOSTealContainerLight */
+  --color-on-tertiary-container: #0f766e; /* LifeOSTealContainerDark */
+
+  /* Status */
+  --color-danger: #dc2626; /* LifeOSStatusHighPriority */
+  --color-danger-container: #fee2e2;
+  --color-on-danger-container: #991b1b;
+
+  /* Neutrals */
+  --color-background: #f7f6fb; /* LifeOSSurfaceLight */
+  --color-surface: #ffffff;
+  --color-surface-variant: #eceaf3;
+  --color-text: #17151f; /* LifeOSOnSurfaceLight */
+  --color-text-muted: #6b7280; /* LifeOSOnSurfaceVariantLight */
+  --color-border: #d8d5e0; /* LifeOSOutlineLight */
+
+  --gradient-brand: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary-bright));
+  --shadow-card: 0 1px 2px rgb(23 21 31 / 4%), 0 6px 20px rgb(91 33 182 / 6%);
+  --shadow-glow: 0 8px 22px rgb(124 58 237 / 28%);
+  --focus-ring: 0 0 0 3px rgb(124 58 237 / 35%);
+
+  /* Shape (Material 3 shapes of the mobile theme) */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* Spacing: 4px base unit */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  --sidebar-width: 248px;
+  --topbar-height: 64px;
+  --control-height: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #c4b5fd; /* md_theme_dark_primary */
+    --color-primary-dark: #5b21b6;
+    --color-primary-bright: #9333ea;
+    --color-on-primary: #3b0f82;
+    --color-primary-container: #4c1d95;
+    --color-on-primary-container: #ede7fe;
+    --color-tertiary: #5eead4; /* md_theme_dark_tertiary */
+    --color-tertiary-container: #0f766e;
+    --color-on-tertiary-container: #ccfbf1;
+
+    --color-danger: #ffb4ab;
+    --color-danger-container: #93000a;
+    --color-on-danger-container: #ffdad6;
+
+    --color-background: #14121b; /* LifeOSSurfaceDark */
+    --color-surface: #1d1a27;
+    --color-surface-variant: #2b2836;
+    --color-text: #eceaf2; /* LifeOSOnSurfaceDark */
+    --color-text-muted: #aaa6b8; /* LifeOSOnSurfaceVariantDark */
+    --color-border: #4a4658; /* LifeOSOutlineDark */
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 20px rgb(0 0 0 / 25%);
+    --shadow-glow: 0 8px 22px rgb(147 51 234 / 35%);
+    --focus-ring: 0 0 0 3px rgb(196 181 253 / 45%);
+  }
+}

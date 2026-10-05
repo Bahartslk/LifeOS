@@ -67,7 +67,7 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 
 ### Admin
 
-Role-restricted routes for the admin panel, implemented by `AdminModule`. Every route requires an authenticated account whose **current role in the database** is `ADMIN` (see [Authorization](#authorization)): a missing or invalid token returns `401`, a regular user `403`.
+Role-restricted routes for the admin panel, implemented by `AdminModule` and consumed by the web client in `admin/` (see [12-project-architecture.md](12-project-architecture.md#admin-web-client)). Every route requires an authenticated account whose **current role in the database** is `ADMIN` (see [Authorization](#authorization)): a missing or invalid token returns `401`, a regular user `403`.
 
 | Method | Path | Requirement | Auth Required |
 | --- | --- | --- | --- |

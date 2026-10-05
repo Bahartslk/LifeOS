@@ -6,8 +6,8 @@
 | --- | --- |
 | Document | Project Architecture |
 | Status | Draft |
-| Version | 2.9.0 |
-| Last Updated | 2026-07-22 |
+| Version | 2.10.0 |
+| Last Updated | 2026-10-05 |
 | Owner | Engineering |
 
 ## Table of Contents
@@ -16,6 +16,7 @@
 - [Architecture Overview](#architecture-overview)
 - [Mobile Architecture](#mobile-architecture)
 - [Backend Architecture](#backend-architecture)
+- [Admin Web Client](#admin-web-client)
 - [System Components](#system-components)
 - [Data Flow](#data-flow)
 - [AI Integration Architecture](#ai-integration-architecture)
@@ -38,11 +39,15 @@ The MVP (see [10-mvp.md](10-mvp.md)) runs the simplest topology that satisfies t
 ```mermaid
 flowchart LR
     User((User)) --> Mobile[Mobile App\nKotlin / Compose Multiplatform]
+    Admin((Admin)) --> AdminWeb[Admin Web\nReact / Vite]
     Mobile -- REST + JWT --> API[NestJS API\nsingle instance]
+    AdminWeb -- REST + JWT, ADMIN role --> API
     API --> DB[(PostgreSQL)]
     API --> Gemini[Gemini API]
     API -. Swagger .-> Docs[API Docs]
 ```
+
+The Admin Web panel is a second, separate client of the same API (see [Admin Web Client](#admin-web-client)). It talks only to the `/auth/*` and `/admin/*` routes and has no connection to the database of its own.
 
 This topology is intentionally simple: it satisfies Clean Architecture and the Repository Pattern internally, so it can scale outward (see [Scalability & Production Readiness](#scalability--production-readiness)) without an internal rewrite — scaling is an infrastructure change, not an architecture change.
 
@@ -176,11 +181,53 @@ Each NestJS feature module (`auth`, `users`, `trips`, `tasks`, `ai`, per [13-fol
 - NestJS's built-in DI container wires each module's controllers, services, and repository implementations; repository interfaces are bound to concrete implementations via provider tokens, so implementations can be swapped (e.g., a test double) without changing consumers.
 - The AI module's dependency on Gemini is bound behind an internal `AiProvider` interface (see [AI Integration Architecture](#ai-integration-architecture)); no other module is aware that Gemini specifically is the provider.
 
+## Admin Web Client
+
+The admin panel (`admin/`, see [13-folder-structure.md](13-folder-structure.md#admin)) is a browser single-page application for administrators. It is a separate client, not part of the mobile app, and it is read-only: it consumes the routes in [15-api-design.md](15-api-design.md#admin) and never writes data.
+
+### Layers
+
+The panel follows the same rules as the other two codebases — feature-first folders, dependencies pointing inward, no component talking to a data source directly:
+
+```mermaid
+flowchart LR
+    Page[Page component\nfeatures/*] --> Api[Feature api module\nfeatures/*/api.ts]
+    Api --> Client[apiClient\ncore/api]
+    Client -- REST + JWT --> Backend[NestJS API\n/auth, /admin]
+    Auth[AuthProvider + RequireAdmin\ncore/auth] --> Client
+    Page --> Auth
+```
+
+- **Pages** hold presentation state only and never call `fetch`.
+- **Feature API modules** are the panel's repositories: typed functions per endpoint.
+- **`apiClient`** is the single place that knows URLs, headers, the `{ data }` / `{ data, meta }` envelope, error mapping and session renewal. It is created once and passed down, never constructed inside a component.
+
+### Session Handling
+
+The panel uses the backend's existing authentication as-is ([JWT Strategy](#jwt-strategy)); nothing was added to the backend for it.
+
+- **Tokens live in memory only.** The access and refresh tokens are held in a closure and never written to `localStorage`, `sessionStorage`, cookies or IndexedDB, so no persisted copy exists for an injected script to read later. Reloading the page signs the admin out; that cost is accepted for an admin tool. The backend returns tokens in the JSON body and sets no cookie, so an `httpOnly` cookie session would be a backend change and is out of scope.
+- **Single-flight renewal.** On a `401` the client calls `POST /auth/refresh` once and retries the original request once. Concurrent `401`s share that one refresh call: because refresh tokens rotate and a reused token revokes the whole session family, two parallel refreshes with the same token would sign the admin out.
+- **`403` is final.** It is never retried or refreshed; the panel shows "access denied" and ends the session.
+
+### Security Boundary
+
+The backend is the only security boundary. `RolesGuard` reads the caller's current role from the database on every `/admin/*` request (see [15-api-design.md](15-api-design.md#roles)), so nothing the browser does can grant access. On the client:
+
+- After login the panel calls `GET /admin/session` and follows its answer; the `role` in the login response is a display hint and is never trusted for access.
+- The route guard (`RequireAdmin`) is navigation, not protection — bypassing it yields screens with no data.
+- The panel can show only what the admin API returns: account fields and aggregate counts. Password hashes, tokens, profile free text and the content of tasks and trips are not in that contract.
+
+### Deployment Status
+
+The panel has not been deployed. Cross-origin access for it is controlled by the backend's `CORS_ALLOWED_ORIGINS` allow-list ([15-api-design.md](15-api-design.md#cors)), which is empty in production; hosting and that setting are covered in [17-deployment-guide.md](17-deployment-guide.md#8-admin-web-panel-not-deployed-yet).
+
 ## System Components
 
 | Component | Responsibility |
 | --- | --- |
 | Mobile App | Kotlin / Compose Multiplatform client implementing all six modules' presentation and domain layers. |
+| Admin Web | React / TypeScript single-page application for administrators; a read-only client of the `/admin/*` routes. See [Admin Web Client](#admin-web-client). |
 | NestJS API | Backend serving REST endpoints, enforcing authentication, authorization, validation, and business logic. Stateless — horizontally scalable behind a load balancer. |
 | PostgreSQL | System of record for users, trips, itinerary items, tasks, task lists, and AI conversations. |
 | Connection Pool (PgBouncer) | Bounds the number of physical database connections as API instances scale out; see [Scalability & Production Readiness](#scalability--production-readiness). |
@@ -318,6 +365,11 @@ Architecturally, each technology in [CLAUDE.md](../CLAUDE.md#tech-stack) maps to
 | Ktor Client | The shared `HttpClient` every feature's remote data source depends on, per [Repository Pattern](#repository-pattern). |
 | Coil | Image loading (trip cover images, user avatars) for Compose Multiplatform. |
 | Navigation (Compose Multiplatform Navigation) | Backs `LifeOSNavHost`; each feature registers its screens' routes into the shared graph. |
+| React | Presentation layer of the admin web panel. |
+| TypeScript | Language of the admin web panel (and of the backend). |
+| Vite | Development server and production bundler for the admin web panel. |
+| React Router | Client-side routing for the admin web panel; one route table behind a single admin guard. |
+| Vitest | Test runner for the admin web panel, with Testing Library. |
 | NestJS | Backend application framework providing the module/controller/service/DI structure. |
 | Prisma | ORM and migration tool for PostgreSQL, wrapped by repository implementations per [Repository Pattern (Backend)](#repository-pattern-backend). |
 | PostgreSQL | Persistence layer accessed exclusively through the repository layer. |
@@ -331,6 +383,7 @@ Architecturally, each technology in [CLAUDE.md](../CLAUDE.md#tech-stack) maps to
 | Integration | Direction | Notes |
 | --- | --- | --- |
 | Mobile ↔ NestJS API | Bidirectional, REST over HTTPS | JWT bearer token on every authenticated request. |
+| Admin Web ↔ NestJS API | Bidirectional, REST over HTTPS | JWT bearer token; only `/auth/*` and `/admin/*` routes; the `ADMIN` role is checked by the backend on every request. Cross-origin, so the panel's origin must be in `CORS_ALLOWED_ORIGINS`. |
 | NestJS API ↔ PostgreSQL | Bidirectional | Accessed only through repository implementations, via a connection pool at scale. |
 | NestJS API ↔ Gemini API | Outbound | Isolated to the AI module's `AiProvider` abstraction; no other module calls Gemini directly. |
 | NestJS API ↔ Swagger | Generated | Documentation is generated from controller/DTO annotations, not maintained by hand. |
