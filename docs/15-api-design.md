@@ -21,6 +21,7 @@
 - [Pagination](#pagination)
 - [Filtering and Sorting](#filtering-and-sorting)
 - [Rate Limiting](#rate-limiting)
+- [CORS](#cors)
 - [Error Handling](#error-handling)
 - [Versioning](#versioning)
 - [Notes](#notes)
@@ -63,6 +64,16 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 | DELETE | `/api/v1/users/me/sessions/:id` | FR-PROFILE-05 | Yes |
 
 `PATCH /users/me/password` (FR-PROFILE-03) and the session-management pair (FR-PROFILE-05) remain undelivered — Sprint 17.0's explicit scope was "Do NOT implement: Password reset" and its 3-route API list had no session routes. See `backend/src/modules/README.md` for the suggested next step.
+
+### Admin
+
+Role-restricted routes for the admin panel, implemented by `AdminModule`. Every route requires an authenticated account whose **current role in the database** is `ADMIN` (see [Authorization](#authorization)): a missing or invalid token returns `401`, a regular user `403`.
+
+| Method | Path | Requirement | Auth Required |
+| --- | --- | --- | --- |
+| GET | `/api/v1/admin/session` | Admin panel session check | Yes (`ADMIN`) |
+
+`GET /admin/session` returns the calling admin's own `id`, `email`, `displayName` and `role`. It reads no other user's data; the admin panel calls it after login to confirm, against the backend, that the account really is an admin. Further admin routes (dashboard metrics, user list) will be added under the same prefix and guards.
 
 ### Trips (Travel)
 
@@ -446,6 +457,16 @@ Authorization is enforced independently of authentication, at two layers, per [1
 
 A request for a resource that exists but is not owned by the requester returns `404 Not Found`, not `403 Forbidden` — this avoids confirming to a caller that a given resource ID exists at all when it isn't theirs.
 
+### Roles
+
+Every account has a role, `USER` (the default) or `ADMIN` (`users.role`, see [14-database-design.md](14-database-design.md)). Routes marked `@Roles(...)` are additionally protected by `RolesGuard`, which runs after `JwtAuthGuard`:
+
+- The decision uses the caller's **current role read from the database on every request**, never the `role` claim inside the access token. That claim exists only so a client can adapt its UI. A promotion or demotion therefore takes effect immediately, including for access tokens that were already issued.
+- No valid token returns `401`. A valid token for an account that no longer exists (soft-deleted) returns `401`. A valid token for an account without the required role returns `403`.
+- `RolesGuard` denies by default: a route it guards that declares no `@Roles(...)` at all (on the handler or its controller) returns `403` to everyone, including admins. A forgotten `@Roles` therefore fails closed instead of opening the route to every authenticated user.
+- No API request can set or change a role. `register`, `PATCH /users/me` and `PATCH /users/preferences` do not declare a `role` field, so the global `forbidNonWhitelisted` validation rejects one with `400`. The only way to grant or revoke `ADMIN` is the `admin:promote` command-line tool run by an operator with database access (see `backend/README.md`).
+- The login response's `user` object and `GET /users/me` include `role` (read-only).
+
 ## Pagination
 
 All list endpoints (`GET /travel/trips`, `GET /planner/tasks`, `GET /task-lists`, `GET /ai/conversations`, `GET /ai/conversations/:id/messages`) use **cursor-based pagination**, not offset/page-number pagination:
@@ -481,9 +502,24 @@ Enum-valued filters (`status`, `priority`) are uppercase, matching the Postgres 
 
 ## Rate Limiting
 
-- A global per-user rate limit applies to all authenticated endpoints (target: 120 requests/minute), protecting the API from a single misbehaving client, returning `429 Too Many Requests` with a `Retry-After` header when exceeded.
+- Implemented with `@nestjs/throttler`, per client IP over a one-minute window, returning `429 Too Many Requests` with a `Retry-After` header when exceeded:
+
+  | Scope | Default limit | Override |
+  | --- | --- | --- |
+  | Every route | 300 requests/minute | `THROTTLE_LIMIT` |
+  | `POST /auth/login` | 10 requests/minute | `THROTTLE_LOGIN_LIMIT` |
+  | `POST /auth/register` | 10 requests/minute | `THROTTLE_REGISTER_LIMIT` |
+  | `POST /auth/refresh` | 30 requests/minute | `THROTTLE_REFRESH_LIMIT` |
+  | `GET /health` | not limited | — |
+
+  The credential routes are deliberately tight to make password guessing and mass sign-up impractical. The app runs behind a reverse proxy, so it trusts `TRUST_PROXY_HOPS` hop(s) (default 1) to read the real client IP; without that every client would share one counter. Counters are held in memory per API instance.
+- Planned, not yet implemented: a per-user (rather than per-IP) limit for authenticated endpoints.
 - AI endpoints (`/ai/conversations/**`, `/travel/trips/:id/ai-suggestions`) carry an additional, stricter per-user limit enforced at the AI module facade, per [12-project-architecture.md](12-project-architecture.md#rate-limiting), independent of the general API limit — this protects the Gemini quota specifically, which is a scarcer and costlier resource than ordinary CRUD capacity.
-- Rate limit state is tracked centrally (not per API instance), so the limit holds correctly once the API is horizontally scaled per [12-project-architecture.md](12-project-architecture.md#scalability--production-readiness).
+- Planned, not yet implemented: tracking rate limit state centrally (not per API instance), so the limit holds correctly once the API is horizontally scaled per [12-project-architecture.md](12-project-architecture.md#scalability--production-readiness).
+
+## CORS
+
+Browser clients may call the API cross-origin only from the origins listed in `CORS_ALLOWED_ORIGINS` (comma-separated), i.e. the admin panel's URL. When it is empty, Vite's local dev servers (`http://localhost:5173`, `http://localhost:4173`) are allowed outside production, and no cross-origin access is allowed in production. Credentials (cookies) are never allowed: tokens travel in the `Authorization` header. Native mobile clients send no `Origin` header and are unaffected; Swagger UI is served from the API's own origin.
 
 ## Error Handling
 
@@ -505,10 +541,10 @@ All error responses use a consistent envelope:
 | --- | --- | --- |
 | 400 | Validation failure | Missing required field, or an unsupported `sort`/filter value. |
 | 401 | Missing or invalid JWT | Expired access token (FR-AUTH-06). |
-| 403 | Authenticated but not authorized | Reserved for authenticated actions the user's account is not permitted to perform at all (distinct from ownership — see [Authorization](#authorization), which uses 404). |
+| 403 | Authenticated but not authorized | The account's role does not permit the action, e.g. a regular user calling an `/admin/*` route (see [Roles](#roles)). Distinct from ownership — see [Authorization](#authorization), which uses 404. |
 | 404 | Resource not found | Trip ID does not exist or belongs to another user. |
 | 409 | Conflict | Registering with an email that already exists. |
-| 429 | Rate limit exceeded | General API or AI-specific per-user limit exceeded; see [Rate Limiting](#rate-limiting). |
+| 429 | Rate limit exceeded | Too many requests from one client IP, e.g. more than 10 sign-in attempts in a minute; see [Rate Limiting](#rate-limiting). |
 | 502 / 504 | Upstream AI provider failure | Gemini API timeout or error, surfaced per [12-project-architecture.md](12-project-architecture.md#error-handling). |
 
 ## Versioning

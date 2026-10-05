@@ -104,6 +104,11 @@ model User {
   /// `taskReminders`, `tripReminders`, `aiInsights` — one per this app's
   /// three feature domains (Planner, Travel, AI Assistant).
   notificationPreferences Json           @default("{\"taskReminders\": true, \"tripReminders\": true, \"aiInsights\": true}") @map("notification_preferences")
+  /// Authorization role (see `UserRole`). Every account is `USER` unless
+  /// promoted by the `admin:promote` CLI — no API request can set or change
+  /// it. `RolesGuard` reads this column on every admin request, so a change
+  /// here takes effect immediately, independent of any already-issued JWT.
+  role                    UserRole       @default(USER)
   createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt               DateTime?      @map("deleted_at") @db.Timestamptz
@@ -113,6 +118,15 @@ model User {
   trips                   Trip[]
 
   @@map("users")
+}
+
+/// Role-based access control (docs/15-api-design.md#authorization). `USER`
+/// is every regular account; `ADMIN` additionally passes `@Roles(ADMIN)`
+/// routes (the admin panel's API). Additive with a `USER` default, so
+/// existing rows are unaffected.
+enum UserRole {
+  USER
+  ADMIN
 }
 
 /// Mirrors the mobile client's `com.lifeos.app.core.storage.ThemeMode`

@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
+import { THROTTLE_WINDOW_MS, throttleLimits } from './config/throttle.config';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { PlannerModule } from './modules/planner/planner.module';
 import { TravelModule } from './modules/travel/travel.module';
 import { AiModule } from './modules/ai/ai.module';
@@ -47,10 +50,14 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
       load: [configuration],
       validationSchema: envValidationSchema,
     }),
+    // Per-IP rate limiting on every route (see config/throttle.config.ts);
+    // the credential routes in AuthController tighten it further.
+    ThrottlerModule.forRoot([{ ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.global }]),
     PrismaModule,
     HealthModule,
     AuthModule,
     UsersModule,
+    AdminModule,
     PlannerModule,
     TravelModule,
     AiModule,
@@ -59,6 +66,7 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
     NotificationsModule,
   ],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformResponseInterceptor },

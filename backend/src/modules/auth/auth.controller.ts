@@ -6,8 +6,11 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { THROTTLE_WINDOW_MS, throttleLimits } from '../../config/throttle.config';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
@@ -30,24 +33,29 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.register } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new account' })
   @ApiCreatedResponse({ type: AuthTokensDto })
   @ApiConflictResponse({ description: 'An account with this email already exists.' })
+  @ApiTooManyRequestsResponse({ description: 'Too many sign-up attempts from this address.' })
   register(@Body() dto: RegisterDto): Promise<AuthTokensDto> {
     return this.authService.register(dto);
   }
 
   @Post('login')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.login } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sign in with email and password' })
   @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password.' })
+  @ApiTooManyRequestsResponse({ description: 'Too many sign-in attempts from this address.' })
   login(@Body() dto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(dto);
   }
 
   @Post('refresh')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.refresh } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Exchange a valid refresh token for a new token pair (rotates the refresh token)',

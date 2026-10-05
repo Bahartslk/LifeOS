@@ -49,6 +49,18 @@ export const envValidationSchema = Joi.object({
   // code change, matching the JWT TTLs above.
   BCRYPT_SALT_ROUNDS: Joi.number().integer().min(10).max(15).default(12),
 
+  // HTTP hardening. All optional with safe defaults, so no existing
+  // environment needs a new variable to boot.
+  // Comma-separated browser origins allowed cross-origin (the admin panel).
+  CORS_ALLOWED_ORIGINS: Joi.string().optional().allow(''),
+  // Reverse-proxy hops to trust for the client IP (Railway: 1).
+  TRUST_PROXY_HOPS: Joi.number().integer().min(0).max(5).default(1),
+  // Requests per minute per client IP — see src/config/throttle.config.ts.
+  THROTTLE_LIMIT: Joi.number().integer().min(1).default(300),
+  THROTTLE_LOGIN_LIMIT: Joi.number().integer().min(1).default(10),
+  THROTTLE_REGISTER_LIMIT: Joi.number().integer().min(1).default(10),
+  THROTTLE_REFRESH_LIMIT: Joi.number().integer().min(1).default(30),
+
   // AI — Sprint 18A (AI Foundation) and Sprint 18B (First AI Capabilities).
   // GEMINI_API_KEY/OPENROUTER_API_KEY stay optional (see this file's top
   // doc comment); everything else has a safe default so an environment
