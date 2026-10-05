@@ -1,5 +1,6 @@
 import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { SkipResponseTransform } from '../common/decorators/skip-response-transform.decorator';
 import { HealthResponseDto } from './dto/health-response.dto';
 import { HealthService } from './health.service';
@@ -14,6 +15,8 @@ import { HealthService } from './health.service';
  * independent mechanisms).
  */
 @ApiTags('health')
+// Never rate-limited: Railway's healthcheck must always get an answer.
+@SkipThrottle()
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}

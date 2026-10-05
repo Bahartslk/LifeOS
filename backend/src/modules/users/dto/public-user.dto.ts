@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 
 /**
  * The only shape of a `User` ever sent over the API — never the raw Prisma
@@ -20,6 +21,13 @@ export class PublicUserDto {
 
   @ApiProperty({ nullable: true, type: String })
   avatarUrl!: string | null;
+
+  @ApiProperty({
+    enum: UserRole,
+    description:
+      'The account\'s role. Read-only: no API request can set it (see the "admin:promote" CLI).',
+  })
+  role!: UserRole;
 
   @ApiProperty()
   createdAt!: Date;

@@ -168,6 +168,29 @@ files and point `env_file` at whichever applies.
 docker compose -f ../docker/docker-compose.yml up -d --build
 ```
 
+## Admin Access
+
+Accounts have a role, `USER` (default) or `ADMIN`. Routes under
+`/api/v1/admin/...` require an account whose current role in the database
+is `ADMIN`; see `docs/15-api-design.md#roles`.
+
+No API request can grant a role. An operator with database access promotes
+an account that already exists (registered the normal way):
+
+```
+npm run build
+npm run admin:promote -- person@example.com              # dry run: shows what would change
+npm run admin:promote -- person@example.com --confirm    # USER -> ADMIN
+npm run admin:promote -- person@example.com --revoke --confirm   # ADMIN -> USER
+```
+
+The tool reads `DATABASE_URL` from the environment, prints which database
+it is connected to (host and name only), writes nothing without
+`--confirm`, never creates an account and never touches a password. A role
+change takes effect immediately, including for already-issued access
+tokens. During development `npm run admin:promote:dev -- ...` runs the
+TypeScript source directly.
+
 ## Adding a Feature Module
 
 1. Add the entities it needs to `prisma/schema.prisma` (per

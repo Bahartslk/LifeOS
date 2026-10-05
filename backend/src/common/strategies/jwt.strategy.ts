@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { UserRole } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AppConfig } from '../../config/configuration';
 
@@ -21,10 +22,17 @@ import { AppConfig } from '../../config/configuration';
  * per-user version counter would duplicate that same revocation guarantee
  * for no added benefit this sprint — avoided per CLAUDE.md's "do not
  * over-engineer" and "avoid premature abstractions" rules.
+ *
+ * `role` is the account's role at the moment the token was issued — a
+ * convenience for clients (e.g. the admin panel deciding what to render),
+ * NOT an authorization source: `RolesGuard` always re-reads the current
+ * role from the database. Tokens issued before this claim existed simply
+ * don't carry it, hence optional.
  */
 export interface JwtPayload {
   sub: string; // user id
   email: string;
+  role?: UserRole;
   iat: number;
   exp: number;
 }

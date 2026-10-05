@@ -43,6 +43,21 @@ reorder, the Planner integration) — to avoid one service covering both.
 No `TaskListsController`-style gap here — Travel's API surface is complete
 per that sprint's explicit route list.
 
+Admin RBAC foundation: `users.role` (`UserRole`: `USER`/`ADMIN`, default
+`USER`), `@Roles(...)` (`common/decorators`) and `RolesGuard`
+(`common/guards`), which decides from the caller's current role in the
+database on every request — the `role` claim now carried in access tokens
+is only a hint for clients. `admin` exposes a single route so far,
+`GET /admin/session`, guarded by `JwtAuthGuard` + `RolesGuard`; later
+admin routes reuse the same guards. Roles change only through
+`src/cli/promote-admin.ts` (`npm run admin:promote`), never through the
+API. The same change added per-IP rate limiting (`@nestjs/throttler`,
+`config/throttle.config.ts`) and a CORS allow-list, and moved the
+HTTP-level app settings from `main.ts` into `app.setup.ts` so HTTP-level
+specs (`*.http.spec.ts`, using `test/support/http-test-app.ts`) run
+against the production pipeline. See
+[15-api-design.md](../../../docs/15-api-design.md#roles).
+
 Sprint 17.0 (Users / Profile Backend) implemented `users` in full:
 `UsersController` (`GET /users/me`, `PATCH /users/me`,
 `PATCH /users/preferences`) on top of Sprint 14.0's

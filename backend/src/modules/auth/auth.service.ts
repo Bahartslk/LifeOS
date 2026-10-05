@@ -125,7 +125,12 @@ export class AuthService {
   }
 
   private async issueTokenPair(user: User, familyId?: string): Promise<AuthTokensDto> {
-    const payload: Omit<JwtPayload, 'iat' | 'exp'> = { sub: user.id, email: user.email };
+    // `role` is a client-facing hint only — see `JwtPayload`'s doc comment.
+    const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
     const accessToken = await this.jwtService.signAsync(payload);
 
     const rawRefreshToken = randomBytes(40).toString('hex');

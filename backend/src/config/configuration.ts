@@ -19,6 +19,21 @@ export interface AppConfig {
   auth: {
     bcryptSaltRounds: number;
   };
+  http: {
+    /**
+     * Browser origins allowed to call the API cross-origin (the admin
+     * panel). Empty in production means no cross-origin access at all.
+     * Native mobile clients and same-origin Swagger UI are unaffected.
+     */
+    corsAllowedOrigins: string[];
+    /**
+     * How many reverse-proxy hops in front of the app to trust for the
+     * client IP (`X-Forwarded-For`). Rate limiting is per IP, so behind
+     * Railway's proxy this must be at least 1 — otherwise every request
+     * appears to come from the proxy and all clients share one bucket.
+     */
+    trustProxyHops: number;
+  };
   ai: {
     geminiApiKey: string | undefined;
     /** OpenRouter's own API key (Sprint 18B's second provider) — same "optional, provider just reports unavailable without it" pattern as `geminiApiKey`. */
@@ -52,6 +67,9 @@ export interface AppConfig {
     featureProviderOverrides: Record<string, string>;
   };
 }
+
+/** Vite's dev and preview servers — the admin panel during local development. Never applied in production. */
+const DEV_CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:4173'];
 
 /** Splits a comma-separated env var into trimmed, non-empty entries. */
 function parseList(value: string | undefined, fallback: string[]): string[] {
@@ -92,6 +110,13 @@ export default (): AppConfig => ({
   },
   auth: {
     bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS ?? '12', 10),
+  },
+  http: {
+    corsAllowedOrigins: parseList(
+      process.env.CORS_ALLOWED_ORIGINS,
+      process.env.NODE_ENV === 'production' ? [] : DEV_CORS_ORIGINS,
+    ),
+    trustProxyHops: parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10),
   },
   ai: {
     geminiApiKey: process.env.GEMINI_API_KEY,
