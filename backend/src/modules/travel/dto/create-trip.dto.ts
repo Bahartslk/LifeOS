@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TripCategory } from '@prisma/client';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { DATE_PATTERN } from '../../../common/utils/date-time.util';
 
 export class CreateTripDto {
