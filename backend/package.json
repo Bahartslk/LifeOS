@@ -4,6 +4,9 @@
   "description": "LifeOS NestJS backend — infrastructure bootstrap only, per docs/12-project-architecture.md",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",

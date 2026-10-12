@@ -23,6 +23,18 @@ How to deploy the backend to Railway and build a release APK that works on any A
    ```
    Expected: `{"status":"ok","timestamp":"...","version":"0.1.0"}`.
 
+### Node.js version
+
+The backend's Node.js major version is pinned in `backend/package.json` under `"engines": { "node": "22.x" }`, and CI's backend job uses the same major (`.github/workflows/ci.yml`). Until this was pinned, nothing selected a version and Railway built with Node 18.20.5, which two production dependencies (`@google/genai`, `@nestjs/throttler`) do not support.
+
+`engines.node` is the only Node setting kept in the repository. A Node version variable on the Railway service (for example `NIXPACKS_NODE_VERSION`) or the builder's own defaults can override it, so the real version must be confirmed from each deployment's logs rather than assumed:
+
+1. Open the service's **Deployments** tab and select the deployment (match it by commit).
+2. In **Build Logs**, find the Node.js and npm versions the builder installed.
+3. In the same log, search for `EBADENGINE`. Each warning names the package, the Node range it requires, and the version that was used. With the pinned major there should be none.
+
+The builder is Nixpacks (set in `backend/railway.json`), which Railway marks as deprecated. Moving to its successor is a separate, later step; it is not part of pinning the Node version. Whether a given Nixpacks release honors `22.x` is only proven by the build log above.
+
 ## 2. Environment variables (set these in Railway's Variables tab)
 
 | Variable | Value |

@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
 
 # ---- deps: install dependencies once, cached across builds ----
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY backend/package.json backend/package-lock.json* ./
 RUN npm ci
 
 # ---- build: compile TypeScript and generate the Prisma client ----
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY backend/ .
@@ -15,7 +15,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # ---- runtime: minimal image with only what's needed to run ----
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
