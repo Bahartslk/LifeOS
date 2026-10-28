@@ -26,14 +26,14 @@ import kotlin.test.assertTrue
 class DailyBriefRepositoryImplTest {
 
     private val recordedRequests = mutableListOf<HttpRequestData>()
-    private val routes = mutableMapOf<String, MockRequestHandleScope.() -> HttpResponseData>()
+    private var respondWith: MockRequestHandleScope.() -> HttpResponseData = { overview(ALL_PARTS) }
     private var today = LocalDate(2026, 10, 28)
 
     private val engine = MockEngine { request ->
         recordedRequests += request
         val path = request.url.encodedPath.substringAfter("/api/v1/")
-        val handler = routes[path] ?: error("Unexpected request: ${request.method.value} $path")
-        handler()
+        check(path == "daily-brief/overview") { "Unexpected request: ${request.method.value} $path" }
+        respondWith()
     }
 
     private val repository = DailyBriefRepositoryImpl(
@@ -50,91 +50,106 @@ class DailyBriefRepositoryImplTest {
     )
 
     @Test
-    fun getDailyBrief_mapsAllThreePartsAndSortsPriorities() = runTest {
-        respondWithAllParts()
-
+    fun getDailyBrief_sendsOneRequestAndMapsAllThreeParts() = runTest {
         val brief = repository.getDailyBrief().getOrThrow()
 
+        assertEquals(1, recordedRequests.size)
+        assertEquals(HttpMethod.Post, recordedRequests.single().method)
+        assertEquals("Bearer $ACCESS_TOKEN", recordedRequests.single().headers[HttpHeaders.Authorization])
         assertEquals("Sunumu bitir", brief.summary?.suggestedFocus)
         assertEquals(listOf("14:30 toplantı"), brief.summary?.keyEvents)
         assertEquals(listOf("Slaytlar", "Otel"), brief.priorities?.map { it.taskTitle })
         assertEquals(listOf(1, 2), brief.priorities?.map { it.rank })
         assertEquals("Harika bir gün olacak!", brief.motivation)
         assertTrue(brief.isComplete)
-        assertTrue(recordedRequests.all { it.method == HttpMethod.Post })
-        assertTrue(recordedRequests.all { it.headers[HttpHeaders.Authorization] == "Bearer $ACCESS_TOKEN" })
     }
 
     @Test
     fun getDailyBrief_completeBrief_isCachedForTheSameDay() = runTest {
-        respondWithAllParts()
-
         repository.getDailyBrief().getOrThrow()
         repository.getDailyBrief().getOrThrow()
 
-        assertEquals(3, recordedRequests.size)
+        assertEquals(1, recordedRequests.size)
     }
 
     @Test
     fun getDailyBrief_forceRefreshOrNewDay_callsBackendAgain() = runTest {
-        respondWithAllParts()
-
         repository.getDailyBrief().getOrThrow()
         repository.getDailyBrief(forceRefresh = true).getOrThrow()
-        assertEquals(6, recordedRequests.size)
+        assertEquals(2, recordedRequests.size)
 
         today = LocalDate(2026, 10, 29)
         repository.getDailyBrief().getOrThrow()
-        assertEquals(9, recordedRequests.size)
+        assertEquals(3, recordedRequests.size)
     }
 
     @Test
-    fun getDailyBrief_onePartFails_returnsTheOthersAndIsNotCached() = runTest {
-        respondWithAllParts()
-        routes["daily-brief/motivation"] = { serviceUnavailable() }
+    fun getDailyBrief_nullPart_isMappedToNullAndTheBriefIsNotCached() = runTest {
+        respondWith = { overview("""{"summary":$SUMMARY,"priorities":null,"motivation":$MOTIVATION}""") }
 
         val brief = repository.getDailyBrief().getOrThrow()
 
-        assertNull(brief.motivation)
+        assertNull(brief.priorities)
         assertEquals("Sunumu bitir", brief.summary?.suggestedFocus)
+        assertEquals("Harika bir gün olacak!", brief.motivation)
         assertFalse(brief.isComplete)
 
         repository.getDailyBrief().getOrThrow()
-        assertEquals(6, recordedRequests.size)
+        assertEquals(2, recordedRequests.size)
     }
 
     @Test
-    fun getDailyBrief_allPartsFail_returnsFailure() = runTest {
-        listOf("summary", "priorities", "motivation").forEach { routes["daily-brief/$it"] = { serviceUnavailable() } }
+    fun getDailyBrief_missingPartsAndBlankMotivation_areMappedToNull() = runTest {
+        respondWith = { overview("""{"priorities":$PRIORITIES,"motivation":{"message":"  "}}""") }
+
+        val brief = repository.getDailyBrief().getOrThrow()
+
+        assertNull(brief.summary)
+        assertNull(brief.motivation)
+        assertEquals(listOf("Slaytlar", "Otel"), brief.priorities?.map { it.taskTitle })
+    }
+
+    @Test
+    fun getDailyBrief_emptyRanking_isAValidPartAndIsCached() = runTest {
+        respondWith = { overview("""{"summary":$SUMMARY,"priorities":[],"motivation":$MOTIVATION}""") }
+
+        val brief = repository.getDailyBrief().getOrThrow()
+        repository.getDailyBrief().getOrThrow()
+
+        assertEquals(emptyList(), brief.priorities)
+        assertTrue(brief.isComplete)
+        assertEquals(1, recordedRequests.size)
+    }
+
+    @Test
+    fun getDailyBrief_allPartsNull_returnsFailure() = runTest {
+        respondWith = { overview("""{"summary":null,"priorities":null,"motivation":null}""") }
+
+        assertIs<IllegalStateException>(repository.getDailyBrief().exceptionOrNull())
+    }
+
+    @Test
+    fun getDailyBrief_requestFails_returnsFailureAndIsNotCached() = runTest {
+        respondWith = {
+            respondJson(
+                """{"statusCode":503,"error":"Service Unavailable","message":"No AI provider is available"}""",
+                HttpStatusCode.ServiceUnavailable,
+            )
+        }
 
         val error = repository.getDailyBrief().exceptionOrNull()
 
         assertIs<ApiException>(error)
         assertEquals(503, error.statusCode)
+
+        respondWith = { overview(ALL_PARTS) }
+        assertTrue(repository.getDailyBrief().getOrThrow().isComplete)
+        assertEquals(2, recordedRequests.size)
     }
 
-    private fun respondWithAllParts() {
-        routes["daily-brief/summary"] = {
-            respondJson(
-                """{"data":{"provider":"gemini","model":"m","usage":{"inputTokens":1,"outputTokens":1,"totalTokens":2},"latencyMs":10,
-                "result":{"todayPriorities":["Slaytlar"],"keyEvents":[" 14:30 toplantı ",""],"suggestedFocus":" Sunumu bitir "}}}""",
-            )
-        }
-        routes["daily-brief/priorities"] = {
-            respondJson(
-                """{"data":{"provider":"gemini","model":"m","result":{"priorities":[
-                {"taskTitle":"Otel","suggestedRank":2,"reason":"3 gün kaldı"},
-                {"taskTitle":"Slaytlar","suggestedRank":1,"reason":"Yarın teslim"}]}}}""",
-            )
-        }
-        routes["daily-brief/motivation"] = {
-            respondJson("""{"data":{"provider":"gemini","model":"m","result":{"message":"Harika bir gün olacak!"}}}""")
-        }
-    }
-
-    private fun MockRequestHandleScope.serviceUnavailable(): HttpResponseData = respondJson(
-        """{"statusCode":503,"error":"Service Unavailable","message":"No AI provider is available"}""",
-        HttpStatusCode.ServiceUnavailable,
+    private fun MockRequestHandleScope.overview(result: String): HttpResponseData = respondJson(
+        """{"data":{"provider":"gemini","model":"m","usage":{"inputTokens":1,"outputTokens":1,"totalTokens":2},"latencyMs":10,
+        "result":$result}}""",
     )
 
     private fun MockRequestHandleScope.respondJson(
@@ -148,5 +163,12 @@ class DailyBriefRepositoryImplTest {
 
     private companion object {
         const val ACCESS_TOKEN = "test-access-token"
+        const val SUMMARY =
+            """{"todayPriorities":["Slaytlar"],"keyEvents":[" 14:30 toplantı ",""],"suggestedFocus":" Sunumu bitir "}"""
+        const val PRIORITIES =
+            """[{"taskTitle":"Otel","suggestedRank":2,"reason":"3 gün kaldı"},
+            {"taskTitle":"Slaytlar","suggestedRank":1,"reason":"Yarın teslim"}]"""
+        const val MOTIVATION = """{"message":"Harika bir gün olacak!"}"""
+        const val ALL_PARTS = """{"summary":$SUMMARY,"priorities":$PRIORITIES,"motivation":$MOTIVATION}"""
     }
 }

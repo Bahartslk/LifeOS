@@ -59,16 +59,16 @@ flowchart TD
 
 ### Daily Brief on mobile
 
-The AI Assistant screen opens with a "Günün Özeti" card built from three backend endpoints, called in parallel:
+The AI Assistant screen opens with a "Günün Özeti" card built from **one** backend call, `POST /api/v1/daily-brief/overview`, which returns all three parts from a single AI request (one request instead of three keeps the card within the AI provider's per-minute quota):
 
-| Endpoint | Shown as |
+| `result` field | Shown as |
 | --- | --- |
-| `POST /api/v1/daily-brief/summary` | "Bugünün odağı" (`suggestedFocus`) and "Öne çıkanlar" (`keyEvents`) |
-| `POST /api/v1/daily-brief/priorities` | "Önerilen sıra": tasks ordered by `suggestedRank`, each with its `reason` |
-| `POST /api/v1/daily-brief/motivation` | "Günün motivasyonu" (`message`) |
+| `summary` | "Bugünün odağı" (`suggestedFocus`) and "Öne çıkanlar" (`keyEvents`) |
+| `priorities` | "Önerilen sıra": tasks ordered by `suggestedRank`, each with its `reason`; an empty array means there is nothing to rank today |
+| `motivation` | "Günün motivasyonu" (`message`) |
 
-- Each part loads and fails on its own: if one call fails, the other parts still show, with a note that the brief is incomplete. The task context below the card never waits for, or depends on, the AI.
-- A complete brief is cached in memory for the current day (`DailyBriefRepositoryImpl`). Switching tabs or returning to the screen does not call the AI again; the refresh button does.
+- The backend checks each part on its own and sends `null` for a part the AI got wrong; the other parts still show, with a note that the brief is incomplete. The card shows an error only when the request fails or all three parts are `null`. The task context below the card never waits for, or depends on, the AI.
+- A complete brief is cached in memory for the current day (`DailyBriefRepositoryImpl`). Switching tabs or returning to the screen does not call the AI again; the refresh button does. A partial brief is not cached, so the next load asks again.
 - AI calls use a 60-second client timeout (normal requests use 30 seconds), because the backend may retry a provider and fall back to another before answering.
 - The brief is a suggestion only. Its priority order never changes a task's stored priority.
 - The backend needs `GEMINI_API_KEY` (or `OPENROUTER_API_KEY`) set; without one, every part fails and the card shows its error message.
