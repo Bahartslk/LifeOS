@@ -48,6 +48,8 @@ export interface AppConfig {
     fallbackEnabled: boolean;
     /** Gemini's own model id — read only by `GeminiProvider`. */
     model: string;
+    /** Gemini models `GeminiProvider` tries, in order, after `model` answers 429 or 503. Each model has its own free-tier quota. */
+    modelFallbacks: string[];
     /** OpenRouter's own model id (an OpenRouter model slug, e.g. `"openai/gpt-4o-mini"`) — read only by `OpenRouterProvider`. Deliberately a separate field from `model`, not a rename of it — different providers' model id namespaces mean nothing to each other. */
     openRouterModel: string;
     temperature: number;
@@ -125,7 +127,11 @@ export default (): AppConfig => ({
     enabledProviders: parseList(process.env.AI_ENABLED_PROVIDERS, ['gemini', 'openrouter']),
     providerPriority: parseList(process.env.AI_PROVIDER_PRIORITY, ['gemini', 'openrouter']),
     fallbackEnabled: (process.env.AI_FALLBACK_ENABLED ?? 'false') === 'true',
-    model: process.env.AI_MODEL ?? 'gemini-2.5-flash',
+    model: process.env.AI_MODEL ?? 'gemini-3.5-flash',
+    modelFallbacks: parseList(process.env.AI_MODEL_FALLBACKS, [
+      'gemini-2.5-flash',
+      'gemini-3.5-flash-lite',
+    ]),
     openRouterModel: process.env.AI_OPENROUTER_MODEL ?? 'openai/gpt-4o-mini',
     temperature: parseFloat(process.env.AI_TEMPERATURE ?? '0.7'),
     topP: parseFloat(process.env.AI_TOP_P ?? '0.95'),

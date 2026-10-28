@@ -13,6 +13,10 @@ import { AiFeature, ProviderId } from '../types/ai.types';
  * variable directly — `config/configuration.ts` remains the single place
  * that does, per that file's own doc comment.
  */
+function isPreviewModel(model: string): boolean {
+  return /-preview(?:-|$)/.test(model);
+}
+
 @Injectable()
 export class AiConfigService {
   constructor(private readonly configService: ConfigService<AppConfig, true>) {}
@@ -47,6 +51,17 @@ export class AiConfigService {
 
   get model(): string {
     return this.configService.get('ai.model', { infer: true });
+  }
+
+  /**
+   * The Gemini models to try, in order: `model` first, then
+   * `AI_MODEL_FALLBACKS`. Duplicates are dropped, and so are preview models
+   * (their quotas and availability change without notice, so they don't
+   * belong in a production fallback chain).
+   */
+  get modelChain(): string[] {
+    const models = [this.model, ...this.configService.get('ai.modelFallbacks', { infer: true })];
+    return [...new Set(models)].filter((model, index) => index === 0 || !isPreviewModel(model));
   }
 
   get temperature(): number {
