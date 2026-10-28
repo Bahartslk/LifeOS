@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AiCapabilityService } from '../ai/capabilities/ai-capability.service';
 import {
   DAILY_MOTIVATION,
+  DAILY_OVERVIEW,
   DAILY_PRIORITIES,
   DAILY_SUMMARY,
   PREPARATION_SUGGESTIONS,
@@ -51,5 +52,9 @@ export class DailyBriefService {
 
   generateMotivation(userId: string, notes?: string) {
     return this.capabilityService.run(DAILY_MOTIVATION, userId, notes);
+  }
+
+  getDailyOverview(userId: string, notes?: string) {
+    return this.capabilityService.run(DAILY_OVERVIEW, userId, notes);
   }
 }

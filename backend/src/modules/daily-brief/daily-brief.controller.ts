@@ -7,6 +7,7 @@ import { AiCapabilityRequestDto } from '../ai/dto/ai-capability-request.dto';
 import { ApiAiProviderErrorResponses } from '../ai/swagger/ai-provider-error-responses.decorator';
 import { DailyBriefService } from './daily-brief.service';
 import { DailyMotivationResponseDto } from './dto/daily-motivation-response.dto';
+import { DailyOverviewResponseDto } from './dto/daily-overview-response.dto';
 import { DailyPrioritiesResponseDto } from './dto/daily-priorities-response.dto';
 import { DailySummaryResponseDto } from './dto/daily-summary-response.dto';
 import { PreparationResponseDto } from './dto/preparation-response.dto';
@@ -120,5 +121,20 @@ export class DailyBriefController {
     @Body() dto: AiCapabilityRequestDto,
   ): Promise<DailyMotivationResponseDto> {
     return this.dailyBriefService.generateMotivation(user.sub, dto.notes);
+  }
+
+  @Post('overview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Today's summary, task priorities and motivation from a single AI call; each part is null when the AI's answer for it is invalid",
+  })
+  @ApiOkResponse({ type: DailyOverviewResponseDto })
+  @ApiAiProviderErrorResponses()
+  getOverview(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: AiCapabilityRequestDto,
+  ): Promise<DailyOverviewResponseDto> {
+    return this.dailyBriefService.getDailyOverview(user.sub, dto.notes);
   }
 }
