@@ -15,6 +15,7 @@ import {
 } from '../../interfaces/ai-provider.interface';
 import { toGeminiGenerateResult } from '../../mapper/gemini-response.mapper';
 import { withTimeout } from '../with-timeout.util';
+import { thinkingConfigFor } from './gemini-thinking-config.util';
 
 /**
  * The only file in this module that imports `@google/genai` — per
@@ -46,6 +47,7 @@ export class GeminiProvider implements AiProvider {
     }
 
     const model = this.aiConfig.model;
+    const thinkingConfig = thinkingConfigFor(model);
     const timeoutMs = request.options?.timeoutMs ?? this.aiConfig.timeoutMs;
     const startedAt = Date.now();
 
@@ -61,6 +63,7 @@ export class GeminiProvider implements AiProvider {
               topP: request.options?.topP ?? this.aiConfig.topP,
               topK: request.options?.topK ?? this.aiConfig.topK,
               maxOutputTokens: request.options?.maxTokens ?? this.aiConfig.maxTokens,
+              ...(thinkingConfig && { thinkingConfig }),
               abortSignal: signal,
             },
           }),
