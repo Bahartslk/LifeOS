@@ -4,6 +4,7 @@ import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.core.network.AuthTokenProvider
 import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
+import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -145,6 +146,18 @@ class DailyBriefRepositoryImplTest {
         respondWith = { overview(ALL_PARTS) }
         assertTrue(repository.getDailyBrief().getOrThrow().isComplete)
         assertEquals(2, recordedRequests.size)
+    }
+
+    @Test
+    fun getDailyBrief_quotaExceeded429_returnsAiQuotaExceededException() = runTest {
+        respondWith = {
+            respondJson(
+                """{"statusCode":429,"error":"TOO_MANY_REQUESTS","message":"AI provider \"gemini\" rate limit exceeded."}""",
+                HttpStatusCode.TooManyRequests,
+            )
+        }
+
+        assertIs<AiQuotaExceededException>(repository.getDailyBrief().exceptionOrNull())
     }
 
     private fun MockRequestHandleScope.overview(result: String): HttpResponseData = respondJson(
