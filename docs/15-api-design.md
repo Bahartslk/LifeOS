@@ -299,6 +299,16 @@ since neither owns "the user's whole day").
 | POST | `/api/v1/daily-brief/risks` | `{ notes?: string }` | Yes |
 | POST | `/api/v1/daily-brief/priorities` | `{ notes?: string }` | Yes |
 | POST | `/api/v1/daily-brief/motivation` | `{ notes?: string }` | Yes |
+| POST | `/api/v1/daily-brief/overview` | `{ notes?: string }` | Yes |
+
+`overview` returns `summary`, `priorities` and `motivation` from **one** AI
+call (`result: { summary, priorities, motivation }`), so a client showing
+all three spends one provider request instead of three — the Gemini free
+tier only allows a few requests per minute. Each part is validated on its
+own: a part that is missing or doesn't match its shape is `null` and the
+other parts are still returned. Only an answer that can't be read as a
+JSON object fails the whole call with `502`. `priorities` here is the
+ranking array itself (the `priorities` field of `/priorities`' result).
 
 None of these routes writes to `Task`/`TaskList`/`Trip`/`ItineraryItem` —
 every `result` is a suggestion the client reviews. `priorities` is
