@@ -287,6 +287,7 @@ Conversation and message persistence uses the `ai_conversations` and `ai_message
 
 - The `AiProvider` interface exposes provider-agnostic operations (e.g., `generate(prompt, context) -> AiResult`); the `GeminiProvider` adapter is the only component that imports the Gemini SDK/client.
 - Business decisions about AI output (e.g., turning a suggestion into a real `ItineraryItem` or `Task`) are made by the calling feature's use case, not by the AI module — the AI module returns structured suggestions, it never writes to another module's tables directly.
+- The Gemini model is set by `AI_MODEL` (default `gemini-2.5-flash`). Every capability asks for a short JSON answer with a small output token limit, so `GeminiProvider` turns thinking off (`thinkingConfig: { thinkingBudget: 0 }`) for the models that allow it (Gemini 2.5 Flash and Flash-Lite, see `gemini-thinking-config.util.ts`); for any other model the setting is not sent. Otherwise a thinking model spends the budget on thoughts and the JSON answer is cut off.
 - Replacing or supplementing Gemini with another provider requires only a new `AiProvider` implementation; the facade, prompt templates (adapted per provider's input format if needed), rate limiter, and circuit breaker are unaffected.
 
 ### Error Handling
@@ -305,7 +306,7 @@ Conversation and message persistence uses the `ai_conversations` and `ai_message
 
 ### Retry Strategy
 
-- Transient failures (timeouts, 5xx) are retried a small, bounded number of times with exponential backoff and jitter.
+- Transient failures (timeouts, 5xx) are retried a small, bounded number of times with exponential backoff and jitter. A provider rate limit (`429`, e.g. the Gemini free tier's per-minute quota) and an invalid provider response are never retried (`AiRetryExecutor`).
 - Retries are only applied to idempotent AI read/generate operations; once a suggestion has been accepted and a write is in progress (per [09-ai-features.md](09-ai-features.md#feature-overview)), that write follows normal database transaction semantics, not the AI retry policy.
 - The circuit breaker takes precedence over retries: once open, requests fail immediately rather than retrying into a known-down dependency.
 
