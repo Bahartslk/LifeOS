@@ -2,7 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import { ApiResponse } from '@nestjs/swagger';
 
 /**
- * The two provider-failure responses every AI capability endpoint can
+ * The provider-failure responses (429, 503, 502) every AI capability endpoint can
  * return, regardless of which module owns the capability (`AiController`,
  * `PlannerAiController`, `TravelAiController`, `DailyBriefController`).
  * Promoted here in Sprint 21.5's architecture audit — the same two
@@ -15,6 +15,11 @@ import { ApiResponse } from '@nestjs/swagger';
  */
 export function ApiAiProviderErrorResponses(): MethodDecorator & ClassDecorator {
   return applyDecorators(
+    ApiResponse({
+      status: 429,
+      description:
+        "Every AI provider tried hit its own rate limit or quota (e.g. the Gemini free tier's per-minute or per-day limit). Try again later.",
+    }),
     ApiResponse({
       status: 503,
       description:

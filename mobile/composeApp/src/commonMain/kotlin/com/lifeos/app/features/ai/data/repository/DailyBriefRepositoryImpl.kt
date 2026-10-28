@@ -1,10 +1,12 @@
 package com.lifeos.app.features.ai.data.repository
 
 import com.lifeos.app.core.date.AppToday
+import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.features.ai.data.dto.DailyOverviewResultDto
 import com.lifeos.app.features.ai.data.dto.DailyPriorityDto
 import com.lifeos.app.features.ai.data.dto.DailySummaryResultDto
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
+import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import com.lifeos.app.features.ai.domain.model.DailyBrief
 import com.lifeos.app.features.ai.domain.model.DailyPriority
 import com.lifeos.app.features.ai.domain.model.DailySummary
@@ -42,7 +44,7 @@ class DailyBriefRepositoryImpl(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            return@withLock Result.failure(e)
+            return@withLock Result.failure(e.toAiFailure())
         }
 
         when {
@@ -58,6 +60,12 @@ class DailyBriefRepositoryImpl(
 
     private data class CachedBrief(val date: LocalDate, val brief: DailyBrief)
 }
+
+/** A `429` from the backend means the AI quota is used up; anything else passes through unchanged. */
+internal fun Exception.toAiFailure(): Exception =
+    if (this is ApiException && statusCode == HTTP_TOO_MANY_REQUESTS) AiQuotaExceededException(this) else this
+
+private const val HTTP_TOO_MANY_REQUESTS = 429
 
 private fun DailyOverviewResultDto.toDomain() = DailyBrief(
     summary = summary?.toDomain(),

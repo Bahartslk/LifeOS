@@ -1,5 +1,6 @@
 package com.lifeos.app.features.ai.presentation
 
+import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import com.lifeos.app.features.ai.domain.model.DailyBrief
 import com.lifeos.app.features.ai.domain.repository.DailyBriefRepository
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
@@ -69,6 +70,15 @@ class AiAssistantViewModelTest {
         assertNull(state.errorMessage)
         assertEquals(AiAssistantStrings.BRIEF_ERROR_MESSAGE, state.dailyBrief.errorMessage)
         assertNull(state.dailyBrief.brief)
+    }
+
+    @Test
+    fun briefQuotaExceeded_showsTheQuotaMessage() = runTest {
+        briefRepository.results += Result.failure(AiQuotaExceededException())
+
+        val viewModel = createViewModel()
+
+        assertEquals(AiAssistantStrings.AI_QUOTA_EXCEEDED_MESSAGE, viewModel.uiState.value.dailyBrief.errorMessage)
     }
 
     @Test

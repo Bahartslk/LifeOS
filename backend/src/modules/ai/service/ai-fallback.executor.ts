@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiConfigService } from '../config/ai-config.service';
 import {
   ProviderFallbackExhaustedException,
+  ProviderRateLimitException,
   ProviderUnavailableException,
 } from '../exceptions/ai.exceptions';
 import { AiProvider } from '../interfaces/ai-provider.interface';
@@ -62,6 +63,7 @@ export class AiFallbackExecutor {
     const fallbackAllowed = this.aiConfig.fallbackEnabled && (options.fallbackAllowed ?? true);
     const candidates = fallbackAllowed ? chain : chain.slice(0, 1);
     const attempted: ProviderId[] = [];
+    const errors: unknown[] = [];
 
     for (let index = 0; index < candidates.length; index += 1) {
       const provider = candidates[index];
@@ -76,7 +78,8 @@ export class AiFallbackExecutor {
           fallbackCount: index,
           attemptedProviderIds: attempted,
         };
-      } catch {
+      } catch (error) {
+        errors.push(error);
         const hasNext = index + 1 < candidates.length;
         this.logger.warn(
           `Provider "${provider.id}" failed after retries; ${hasNext ? 'falling back to the next provider.' : 'no more providers to try.'}`,
@@ -84,6 +87,20 @@ export class AiFallbackExecutor {
       }
     }
 
-    throw new ProviderFallbackExhaustedException(attempted);
+    throw this.exhaustedError(attempted, errors);
+  }
+
+  /**
+   * When every attempted provider hit its rate limit, the caller gets that
+   * rate limit (429) so a client knows to slow down, per
+   * docs/12-project-architecture.md#error-handling. Any other mix of
+   * failures stays the generic "all providers failed" (503).
+   */
+  private exhaustedError(attempted: ProviderId[], errors: unknown[]): Error {
+    const lastError = errors[errors.length - 1];
+    if (errors.every((error) => error instanceof ProviderRateLimitException)) {
+      return lastError as ProviderRateLimitException;
+    }
+    return new ProviderFallbackExhaustedException(attempted);
   }
 }

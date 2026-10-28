@@ -2,6 +2,7 @@ package com.lifeos.app.features.ai.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
 import com.lifeos.app.features.ai.domain.usecase.GetDailyBriefUseCase
 import com.lifeos.app.features.planner.domain.usecase.GetPlannerDashboardUseCase
@@ -95,8 +96,13 @@ class AiAssistantViewModel(
                 val dailyBrief = result.fold(
                     onSuccess = { brief -> DailyBriefUiState(isLoading = false, brief = brief) },
                     // Keep the last brief on screen if a refresh fails.
-                    onFailure = {
-                        state.dailyBrief.copy(isLoading = false, errorMessage = AiAssistantStrings.BRIEF_ERROR_MESSAGE)
+                    onFailure = { error ->
+                        val message = if (error is AiQuotaExceededException) {
+                            AiAssistantStrings.AI_QUOTA_EXCEEDED_MESSAGE
+                        } else {
+                            AiAssistantStrings.BRIEF_ERROR_MESSAGE
+                        }
+                        state.dailyBrief.copy(isLoading = false, errorMessage = message)
                     },
                 )
                 state.copy(dailyBrief = dailyBrief)

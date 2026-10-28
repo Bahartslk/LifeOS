@@ -53,6 +53,7 @@ internal object AiAssistantStrings {
     const val BRIEF_PARTIAL_MESSAGE = "Özetin bir kısmı alınamadı. Yenilemeyi deneyebilirsin."
     const val BRIEF_ERROR_MESSAGE = "Günün özeti şu anda alınamadı. Lütfen biraz sonra tekrar deneyin."
     const val BRIEF_EMPTY_PRIORITIES = "Bugün için sıralanacak görev yok."
+    const val AI_QUOTA_EXCEEDED_MESSAGE = "Bugünlük yapay zeka hakkın doldu, yarın tekrar dene."
 
     // Screen states
     const val LOAD_ERROR_MESSAGE = "Yapay zeka bağlamı yüklenemedi. Lütfen tekrar deneyin."

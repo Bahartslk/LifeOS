@@ -297,7 +297,7 @@ Conversation and message persistence uses the `ai_conversations` and `ai_message
 | Gemini timeout | Treated as a recoverable error; surfaced to the client as a structured error (see [15-api-design.md](15-api-design.md#error-handling)) with a retry hint. |
 | Gemini 4xx (invalid request) | Logged as an internal defect (a template/context bug), not retried, and surfaced as a generic assistant error to the user. |
 | Gemini 5xx / provider outage | Circuit breaker opens after a failure threshold; subsequent requests fail fast with a clear "assistant unavailable" response instead of queuing up timeouts, per [08-non-functional-requirements.md](08-non-functional-requirements.md#reliability). |
-| Rate limit exceeded (provider-side or per-user) | Request is rejected immediately with a `429`-equivalent response instructing the client to slow down; not silently retried in a way that could compound the limit. |
+| Rate limit exceeded (provider-side or per-user) | Request is rejected immediately with a `429`-equivalent response instructing the client to slow down; not silently retried in a way that could compound the limit. A provider rate limit is not retried on the same provider but may still fall back to the next one; when every provider tried hit its rate limit, `AiFallbackExecutor` returns that `429` instead of the generic "all providers failed" `503`. |
 
 ### Rate Limiting
 
