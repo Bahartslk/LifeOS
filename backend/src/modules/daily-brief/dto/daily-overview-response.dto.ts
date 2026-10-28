@@ -14,7 +14,7 @@ export class DailyOverviewResultDto {
   @ApiProperty({
     type: [DailyPriorityDto],
     nullable: true,
-    description: `Recommended order of today's tasks; never changes a stored priority. ${NULL_WHEN_INVALID}`,
+    description: `Recommended order of today's tasks; never changes a stored priority. An empty array means there is nothing to rank today. ${NULL_WHEN_INVALID}`,
   })
   priorities!: DailyPriorityDto[] | null;
 

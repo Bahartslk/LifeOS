@@ -308,7 +308,9 @@ tier only allows a few requests per minute. Each part is validated on its
 own: a part that is missing or doesn't match its shape is `null` and the
 other parts are still returned. Only an answer that can't be read as a
 JSON object fails the whole call with `502`. `priorities` here is the
-ranking array itself (the `priorities` field of `/priorities`' result).
+ranking array itself (the `priorities` field of `/priorities`' result);
+unlike `/priorities`, an empty array is a valid answer (no tasks to rank
+today), while a value of the wrong type or an invalid item makes it `null`.
 
 None of these routes writes to `Task`/`TaskList`/`Trip`/`ItineraryItem` —
 every `result` is a suggestion the client reviews. `priorities` is

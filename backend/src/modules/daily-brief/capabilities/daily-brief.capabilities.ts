@@ -210,7 +210,9 @@ export const DAILY_MOTIVATION: AiCapabilityDefinition<DailyMotivationResult> = {
  */
 const DAILY_OVERVIEW_SCHEMA = z.object({
   summary: DAILY_SUMMARY_SCHEMA.nullable().catch(null),
-  priorities: DAILY_PRIORITIES_SCHEMA.shape.priorities.nullable().catch(null),
+  // Unlike `/priorities`, an empty ranking is valid here: a user with no
+  // tasks today gets `[]` ("nothing to rank"), not a failed part.
+  priorities: z.array(DAILY_PRIORITY_SCHEMA).max(5).nullable().catch(null),
   motivation: DAILY_MOTIVATION_SCHEMA.nullable().catch(null),
 });
 export type DailyOverviewResult = z.infer<typeof DAILY_OVERVIEW_SCHEMA>;

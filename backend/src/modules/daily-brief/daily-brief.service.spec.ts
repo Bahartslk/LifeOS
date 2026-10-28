@@ -97,13 +97,36 @@ describe('DailyBriefService.getDailyOverview', () => {
 
   it('accepts null parts from the AI', async () => {
     const { service } = makeService(
-      JSON.stringify({ summary: null, priorities: [], motivation: MOTIVATION }),
+      JSON.stringify({ summary: null, priorities: PRIORITIES, motivation: null }),
     );
 
     const response = await service.getDailyOverview('user-1');
 
-    // An empty ranking is not a valid priorities part (at least one task is required).
-    expect(response.result).toEqual({ summary: null, priorities: null, motivation: MOTIVATION });
+    expect(response.result).toEqual({ summary: null, priorities: PRIORITIES, motivation: null });
+  });
+
+  it('keeps an empty ranking as a valid answer (no tasks to rank today)', async () => {
+    const { service } = makeService(
+      JSON.stringify({ summary: SUMMARY, priorities: [], motivation: MOTIVATION }),
+    );
+
+    const response = await service.getDailyOverview('user-1');
+
+    expect(response.result).toEqual({ summary: SUMMARY, priorities: [], motivation: MOTIVATION });
+  });
+
+  it('turns a ranking with an invalid item into null', async () => {
+    const { service } = makeService(
+      JSON.stringify({
+        summary: SUMMARY,
+        priorities: [{ taskTitle: '', suggestedRank: 0, reason: 'x' }],
+        motivation: MOTIVATION,
+      }),
+    );
+
+    const response = await service.getDailyOverview('user-1');
+
+    expect(response.result.priorities).toBeNull();
   });
 
   it('accepts a JSON answer wrapped in a code fence', async () => {
