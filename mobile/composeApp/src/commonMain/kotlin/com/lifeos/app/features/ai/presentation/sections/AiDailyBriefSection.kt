@@ -1,6 +1,7 @@
 package com.lifeos.app.features.ai.presentation.sections
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -68,18 +69,25 @@ private fun BriefHeader(isLoading: Boolean, onRefreshClick: () -> Unit) {
             style = LifeOSTextStyles.overline,
             modifier = Modifier.weight(1f).semantics { heading() },
         )
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        } else {
-            IconButton(onClick = onRefreshClick) {
-                Icon(
-                    imageVector = Icons.Filled.Refresh,
-                    contentDescription = AiAssistantStrings.BRIEF_REFRESH_DESCRIPTION,
-                )
+        // Same size as the IconButton, so swapping the button for the
+        // progress indicator doesn't change the header's height.
+        Box(modifier = Modifier.size(HEADER_ACTION_SIZE), contentAlignment = Alignment.Center) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                IconButton(onClick = onRefreshClick) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = AiAssistantStrings.BRIEF_REFRESH_DESCRIPTION,
+                    )
+                }
             }
         }
     }
 }
+
+/** Material 3's minimum touch target, the size an [IconButton] takes. */
+private val HEADER_ACTION_SIZE = 48.dp
 
 @Composable
 private fun BriefContent(brief: DailyBrief) {
