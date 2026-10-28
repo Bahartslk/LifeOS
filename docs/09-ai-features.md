@@ -6,8 +6,8 @@
 | --- | --- |
 | Document | AI Features |
 | Status | Draft |
-| Version | 1.1.0 |
-| Last Updated | 2026-07-16 |
+| Version | 1.2.0 |
+| Last Updated | 2026-10-28 |
 | Owner | Engineering – AI |
 
 ## Table of Contents
@@ -56,6 +56,22 @@ flowchart TD
 | Trip itinerary suggestions | Given a trip's destination and dates, the assistant proposes itinerary items the user can accept or discard. |
 | Task-aware daily highlight | The assistant summarizes the user's day using their tasks and trips as input. |
 | Suggestion application | Accepted suggestions are converted into real Trip/ItineraryItem or Task records through the normal domain use cases — never written directly by the AI layer. |
+
+### Daily Brief on mobile
+
+The AI Assistant screen opens with a "Günün Özeti" card built from three backend endpoints, called in parallel:
+
+| Endpoint | Shown as |
+| --- | --- |
+| `POST /api/v1/daily-brief/summary` | "Bugünün odağı" (`suggestedFocus`) and "Öne çıkanlar" (`keyEvents`) |
+| `POST /api/v1/daily-brief/priorities` | "Önerilen sıra": tasks ordered by `suggestedRank`, each with its `reason` |
+| `POST /api/v1/daily-brief/motivation` | "Günün motivasyonu" (`message`) |
+
+- Each part loads and fails on its own: if one call fails, the other parts still show, with a note that the brief is incomplete. The task context below the card never waits for, or depends on, the AI.
+- A complete brief is cached in memory for the current day (`DailyBriefRepositoryImpl`). Switching tabs or returning to the screen does not call the AI again; the refresh button does.
+- AI calls use a 60-second client timeout (normal requests use 30 seconds), because the backend may retry a provider and fall back to another before answering.
+- The brief is a suggestion only. Its priority order never changes a task's stored priority.
+- The backend needs `GEMINI_API_KEY` (or `OPENROUTER_API_KEY`) set; without one, every part fails and the card shows its error message.
 
 ## Data Requirements
 

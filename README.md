@@ -32,7 +32,7 @@ The project has gone through a staged backend-integration migration, replacing a
 | **Home Dashboard** | ✅ Fully integrated | Real greeting, Planner-derived task stats and priorities, Travel-derived upcoming-trip card and highlights — no fabricated data |
 | **Profile** | 🔶 UI complete, local-only | Theme preference persists on-device; backend `users` API already exists but isn't wired up yet |
 | **Admin Panel (web)** | ✅ Built, not deployed | Read-only web panel for administrators: dashboard, user list and user detail on the real admin API, behind backend role checks. See [`admin/README.md`](admin/README.md) |
-| **AI Assistant** | 🔶 UI complete, local-only | Reads real Planner data for its progress summary; backend AI capabilities (Gemini/OpenRouter) exist but the client doesn't call them yet |
+| **AI Assistant** | 🔶 Partly integrated | Daily Brief (focus, highlights, suggested task order, motivation) comes from the real backend AI endpoints; chat and reminders are not wired up yet |
 
 Across every integrated module, the project deliberately never synthesizes fake business data to fill a gap — where the backend has no data for something (e.g. trip weather, flight details, week-over-week productivity trend), the UI shows a real empty state instead of a placeholder value.
 
@@ -174,7 +174,7 @@ Completed so far (see each iteration's own QA report in project history):
 Planned next:
 
 5. ⏳ Profile backend integration — wire the existing `GET/PATCH /api/v1/users/me` and `PATCH /api/v1/users/preferences` endpoints into the Profile UI
-6. ⏳ AI Assistant backend integration — connect the client to the existing Gemini/OpenRouter-backed `/api/v1/ai/...` and Daily Brief endpoints
+6. 🔶 AI Assistant backend integration — Daily Brief is connected; chat and proactive reminders (`/api/v1/proactive-assistant/...`) are still pending
 7. ⏳ Real week-over-week productivity history (currently an honest empty state — no backend endpoint tracks it yet)
 8. ⏳ Subtask persistence against the real backend (no backend model yet; toggling a subtask fails explicitly). Planner Calendar already reads the user's real tasks via `GET /api/v1/planner/tasks?dueAfter=&dueBefore=`
 9. ⏳ iOS build verification (source sets exist; not yet built/tested on this project)
