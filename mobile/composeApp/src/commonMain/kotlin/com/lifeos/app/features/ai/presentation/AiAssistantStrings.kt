@@ -41,6 +41,19 @@ internal object AiAssistantStrings {
     // Actions
     const val ADD_TASK_ACTION = "Görev Ekle"
 
+    // Daily Brief (AI)
+    const val BRIEF_TITLE = "Günün Özeti"
+    const val BRIEF_LOADING = "Günün hazırlanıyor…"
+    const val BRIEF_REFRESH_ACTION = "Yenile"
+    const val BRIEF_REFRESH_DESCRIPTION = "Günün özetini yenile"
+    const val BRIEF_FOCUS_TITLE = "Bugünün odağı"
+    const val BRIEF_EVENTS_TITLE = "Öne çıkanlar"
+    const val BRIEF_PRIORITIES_TITLE = "Önerilen sıra"
+    const val BRIEF_MOTIVATION_TITLE = "Günün motivasyonu"
+    const val BRIEF_PARTIAL_MESSAGE = "Özetin bir kısmı alınamadı. Yenilemeyi deneyebilirsin."
+    const val BRIEF_ERROR_MESSAGE = "Günün özeti şu anda alınamadı. Lütfen biraz sonra tekrar deneyin."
+    const val BRIEF_EMPTY_PRIORITIES = "Bugün için sıralanacak görev yok."
+
     // Screen states
     const val LOAD_ERROR_MESSAGE = "Yapay zeka bağlamı yüklenemedi. Lütfen tekrar deneyin."
 }

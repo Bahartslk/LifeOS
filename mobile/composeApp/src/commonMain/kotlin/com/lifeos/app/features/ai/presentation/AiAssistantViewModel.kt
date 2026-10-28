@@ -3,12 +3,15 @@ package com.lifeos.app.features.ai.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
+import com.lifeos.app.features.ai.domain.usecase.GetDailyBriefUseCase
 import com.lifeos.app.features.planner.domain.usecase.GetPlannerDashboardUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -29,13 +32,14 @@ import kotlinx.coroutines.launch
  * it, the assistant would keep reasoning over stale Planner data after the
  * user creates, completes, or deletes a task elsewhere and switches back.
  *
- * Not connected to any AI provider — [BuildAiTaskContextUseCase] only
- * prepares the structured context a future Gemini/OpenAI-backed use case
- * would consume; no network call, no prompt, no response happens here yet.
+ * The AI-generated Daily Brief ([GetDailyBriefUseCase]) loads once when the
+ * screen opens and again only when the user taps refresh — never on
+ * [AiAssistantEvent.ScreenResumed], since every load costs real AI calls.
  */
 class AiAssistantViewModel(
     private val getPlannerDashboard: GetPlannerDashboardUseCase,
     private val buildAiTaskContext: BuildAiTaskContextUseCase,
+    private val getDailyBrief: GetDailyBriefUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiAssistantUiState())
@@ -44,8 +48,11 @@ class AiAssistantViewModel(
     private val _actions = Channel<AiAssistantAction>(Channel.BUFFERED)
     val actions = _actions.receiveAsFlow()
 
+    private var dailyBriefJob: Job? = null
+
     init {
         loadContext()
+        loadDailyBrief(forceRefresh = false)
     }
 
     fun onEvent(event: AiAssistantEvent) {
@@ -55,27 +62,45 @@ class AiAssistantViewModel(
             AiAssistantEvent.ScreenResumed -> loadContext(showLoading = false)
             is AiAssistantEvent.TaskClicked -> sendAction(AiAssistantAction.NavigateToTaskDetail(event.taskId))
             AiAssistantEvent.AddTaskClicked -> sendAction(AiAssistantAction.NavigateToCreateTask)
+            AiAssistantEvent.DailyBriefRefreshClicked -> loadDailyBrief(forceRefresh = true)
         }
     }
 
     private fun loadContext(showLoading: Boolean = true) {
         viewModelScope.launch {
             if (showLoading) {
-                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             }
             getPlannerDashboard()
                 .onSuccess { dashboard ->
-                    _uiState.value = AiAssistantUiState(
-                        isLoading = false,
-                        context = buildAiTaskContext(dashboard),
-                    )
+                    _uiState.update {
+                        it.copy(isLoading = false, context = buildAiTaskContext(dashboard), errorMessage = null)
+                    }
                 }
                 .onFailure {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = AiAssistantStrings.LOAD_ERROR_MESSAGE,
-                    )
+                    _uiState.update {
+                        it.copy(isLoading = false, errorMessage = AiAssistantStrings.LOAD_ERROR_MESSAGE)
+                    }
                 }
+        }
+    }
+
+    /** Ignores taps while a load is already running, so one tap never sends a second round of AI calls. */
+    private fun loadDailyBrief(forceRefresh: Boolean) {
+        if (dailyBriefJob?.isActive == true) return
+        _uiState.update { it.copy(dailyBrief = it.dailyBrief.copy(isLoading = true, errorMessage = null)) }
+        dailyBriefJob = viewModelScope.launch {
+            val result = getDailyBrief(forceRefresh)
+            _uiState.update { state ->
+                val dailyBrief = result.fold(
+                    onSuccess = { brief -> DailyBriefUiState(isLoading = false, brief = brief) },
+                    // Keep the last brief on screen if a refresh fails.
+                    onFailure = {
+                        state.dailyBrief.copy(isLoading = false, errorMessage = AiAssistantStrings.BRIEF_ERROR_MESSAGE)
+                    },
+                )
+                state.copy(dailyBrief = dailyBrief)
+            }
         }
     }
 

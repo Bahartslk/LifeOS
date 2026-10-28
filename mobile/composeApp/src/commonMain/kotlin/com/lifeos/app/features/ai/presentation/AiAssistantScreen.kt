@@ -28,6 +28,7 @@ import com.lifeos.app.features.ai.domain.model.AiTaskContext
 import com.lifeos.app.features.ai.domain.model.AiTaskProgress
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
 import com.lifeos.app.features.ai.presentation.sections.AiAssistantHeader
+import com.lifeos.app.features.ai.presentation.sections.AiDailyBriefSection
 import com.lifeos.app.features.ai.presentation.sections.AiProgressSummarySection
 import com.lifeos.app.features.ai.presentation.sections.AiTaskListSection
 import com.lifeos.app.features.planner.data.datasource.FakePlannerDataSource
@@ -100,6 +101,7 @@ private fun AiAssistantScreen(
             )
             else -> AiAssistantContent(
                 context = uiState.context,
+                dailyBrief = uiState.dailyBrief,
                 onEvent = onEvent,
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
             )
@@ -110,6 +112,7 @@ private fun AiAssistantScreen(
 @Composable
 private fun AiAssistantContent(
     context: AiTaskContext,
+    dailyBrief: DailyBriefUiState,
     onEvent: (AiAssistantEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -126,6 +129,10 @@ private fun AiAssistantContent(
                 modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(LifeOSSpacing.lg),
             ) {
+                AiDailyBriefSection(
+                    state = dailyBrief,
+                    onRefreshClick = { onEvent(AiAssistantEvent.DailyBriefRefreshClicked) },
+                )
                 AiProgressSummarySection(progress = context.progress)
                 AiTaskListSection(
                     title = AiAssistantStrings.TODAY_TASKS_TITLE,
