@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DATE_PATTERN } from '../../../common/utils/date-time.util';
 import { AiCapabilityDefinition } from '../../ai/capabilities/capability.types';
 import { GEMINI_PROVIDER_ID, OPENROUTER_PROVIDER_ID } from '../../ai/constants/ai.constants';
+import { REMINDER_RECOMMENDATION_SCHEMA } from '../../proactive-assistant/capabilities/proactive-assistant.capabilities';
 
 /**
  * Sprint 21 (Daily Brief Intelligence) — six cross-module AI capabilities,
@@ -201,12 +202,12 @@ export const DAILY_MOTIVATION: AiCapabilityDefinition<DailyMotivationResult> = {
 };
 
 /**
- * Summary, priorities and motivation in one AI call, so the mobile card
- * spends one provider request instead of three (the Gemini free tier only
- * allows a few per minute). Each part is validated on its own: a part that
- * is missing or doesn't match its schema becomes `null` while the others are
- * kept. Only a response that can't be read as a JSON object fails the call
- * (`InvalidProviderResponseException`, 502).
+ * Summary, priorities, motivation and reminder recommendations in one AI
+ * call, so the mobile card spends one provider request instead of four (the
+ * Gemini free tier only allows a few per day). Each part is validated on its
+ * own: a part that is missing or doesn't match its schema becomes `null`
+ * while the others are kept. Only a response that can't be read as a JSON
+ * object fails the call (`InvalidProviderResponseException`, 502).
  */
 const DAILY_OVERVIEW_SCHEMA = z.object({
   summary: DAILY_SUMMARY_SCHEMA.nullable().catch(null),
@@ -214,6 +215,9 @@ const DAILY_OVERVIEW_SCHEMA = z.object({
   // tasks today gets `[]` ("nothing to rank"), not a failed part.
   priorities: z.array(DAILY_PRIORITY_SCHEMA).max(5).nullable().catch(null),
   motivation: DAILY_MOTIVATION_SCHEMA.nullable().catch(null),
+  // Same item shape as `/proactive-assistant/reminders`; `[]` means nothing
+  // upcoming needs a reminder.
+  reminders: z.array(REMINDER_RECOMMENDATION_SCHEMA).max(5).nullable().catch(null),
 });
 export type DailyOverviewResult = z.infer<typeof DAILY_OVERVIEW_SCHEMA>;
 
@@ -223,21 +227,28 @@ export const DAILY_OVERVIEW: AiCapabilityDefinition<DailyOverviewResult> = {
   feature: 'assistant',
   contextScope: {},
   basePrompt:
-    "Using the caller's Planner tasks and Travel trips from the context above, produce three parts of today's brief in one answer. " +
+    "Using the caller's Planner tasks and Travel trips from the context above, produce four parts of today's brief in one answer. " +
     "1) summary: today's priorities, key events worth calling out, and a single suggested focus for the day. " +
     "2) priorities: a recommended ranking of today's existing tasks (an upcoming trip today should outrank a low-priority task); " +
     '"suggestedRank" is a 1-based ordinal (1 = do first), not the stored priority field, and you are not changing any task. ' +
     '3) motivation: one concise, friendly, motivational message that is specific to the tasks of this exact day — name a real task, ' +
     'trip, or how busy or light the day is — and different every day; never a generic platitude that could apply to anyone on any day. ' +
-    'Everything here is a suggestion only.',
+    '4) reminders: up to 5 reminders the caller might want to add to their agenda for upcoming tasks or trips (e.g. the day before a ' +
+    'deadline, before a meeting, or before a flight). "recommendedDate" is today or a later date, or null when no specific date applies. ' +
+    'Do not repeat a task that already exists unchanged; return an empty list if nothing upcoming needs a reminder. ' +
+    'Everything here is a suggestion only; you never create a task or reminder yourself.',
   jsonShapeInstruction:
     '{"summary": {"todayPriorities": string[], "keyEvents": string[], "suggestedFocus": string}, ' +
     '"priorities": [{"taskTitle": string, "suggestedRank": number, "reason": string}], ' +
-    '"motivation": {"message": string}}',
+    '"motivation": {"message": string}, ' +
+    '"reminders": [{"title": string, "reason": string, "relatedTo": "PLANNER" | "TRAVEL" | "BOTH", "recommendedDate": "YYYY-MM-DD" | null}]}',
   outputSchema: DAILY_OVERVIEW_SCHEMA,
   preferredProvider: GEMINI_PROVIDER_ID,
   fallbackAllowed: true,
   temperature: 0.6,
-  // Roughly the three separate capabilities' budgets combined (500 + 400 + 150).
-  maxTokens: 1200,
+  // Measured with all four parts: 355 output tokens (gemini-3.5-flash) and
+  // 461 (gemini-3.5-flash-lite, the wordiest) for 3 priorities and 1
+  // reminder; 5 + 5 would be about 800. A cut-off answer fails the whole
+  // card, so the ceiling keeps about twice that.
+  maxTokens: 1600,
 };

@@ -301,10 +301,13 @@ since neither owns "the user's whole day").
 | POST | `/api/v1/daily-brief/motivation` | `{ notes?: string }` | Yes |
 | POST | `/api/v1/daily-brief/overview` | `{ notes?: string }` | Yes |
 
-`overview` returns `summary`, `priorities` and `motivation` from **one** AI
-call (`result: { summary, priorities, motivation }`), so a client showing
-all three spends one provider request instead of three — the Gemini free
-tier only allows a few requests per minute. Each part is validated on its
+`overview` returns `summary`, `priorities`, `motivation` and `reminders`
+from **one** AI call (`result: { summary, priorities, motivation, reminders }`),
+so a client showing all four spends one provider request instead of four —
+the Gemini free tier only allows a few requests per day. `reminders` uses the
+same item shape as `/proactive-assistant/reminders` (`title`, `reason`,
+`relatedTo`, `recommendedDate`), at most 5; it is a recommendation only and
+nothing is created, and `[]` means nothing upcoming needs a reminder. Each part is validated on its
 own: a part that is missing or doesn't match its shape is `null` and the
 other parts are still returned. Only an answer that can't be read as a
 JSON object fails the whole call with `502`. `priorities` here is the
