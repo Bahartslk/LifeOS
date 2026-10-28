@@ -125,7 +125,7 @@ export default (): AppConfig => ({
     enabledProviders: parseList(process.env.AI_ENABLED_PROVIDERS, ['gemini', 'openrouter']),
     providerPriority: parseList(process.env.AI_PROVIDER_PRIORITY, ['gemini', 'openrouter']),
     fallbackEnabled: (process.env.AI_FALLBACK_ENABLED ?? 'false') === 'true',
-    model: process.env.AI_MODEL ?? 'gemini-2.0-flash',
+    model: process.env.AI_MODEL ?? 'gemini-2.5-flash',
     openRouterModel: process.env.AI_OPENROUTER_MODEL ?? 'openai/gpt-4o-mini',
     temperature: parseFloat(process.env.AI_TEMPERATURE ?? '0.7'),
     topP: parseFloat(process.env.AI_TOP_P ?? '0.95'),
