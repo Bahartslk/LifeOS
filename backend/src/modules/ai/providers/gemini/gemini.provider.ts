@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ApiError, GoogleGenAI } from '@google/genai';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { ApiError, GenerateContentResponse, GoogleGenAI } from '@google/genai';
 import { AiConfigService } from '../../config/ai-config.service';
 import { GEMINI_PROVIDER_ID } from '../../constants/ai.constants';
 import {
@@ -46,38 +46,69 @@ export class GeminiProvider implements AiProvider {
       throw new ProviderUnavailableException(this.id);
     }
 
-    const model = this.aiConfig.model;
-    const thinkingConfig = thinkingConfigFor(model);
-    const timeoutMs = request.options?.timeoutMs ?? this.aiConfig.timeoutMs;
+    const models = this.aiConfig.modelChain;
     const startedAt = Date.now();
 
-    try {
-      const response = await withTimeout(
-        (signal) =>
-          this.getClient().models.generateContent({
-            model,
-            contents: [{ role: 'user', parts: [{ text: request.userPrompt }] }],
-            config: {
-              systemInstruction: request.systemPrompt,
-              temperature: request.options?.temperature ?? this.aiConfig.temperature,
-              topP: request.options?.topP ?? this.aiConfig.topP,
-              topK: request.options?.topK ?? this.aiConfig.topK,
-              maxOutputTokens: request.options?.maxTokens ?? this.aiConfig.maxTokens,
-              ...(thinkingConfig && { thinkingConfig }),
-              abortSignal: signal,
-            },
-          }),
-        timeoutMs,
-      );
-
-      return toGeminiGenerateResult(response, {
-        providerId: this.id,
-        model,
-        latencyMs: Date.now() - startedAt,
-      });
-    } catch (error) {
-      throw this.normalizeError(error);
+    for (const [index, model] of models.entries()) {
+      try {
+        const response = await this.generateWithModel(model, request);
+        return toGeminiGenerateResult(response, {
+          providerId: this.id,
+          model,
+          latencyMs: Date.now() - startedAt,
+        });
+      } catch (error) {
+        const next = models[index + 1];
+        if (next && this.shouldTryNextModel(error)) {
+          this.logger.warn(
+            `Gemini model "${model}" answered ${(error as ApiError).status}; trying "${next}".`,
+          );
+          continue;
+        }
+        throw this.normalizeError(error);
+      }
     }
+    // Unreachable: the chain always holds at least `AI_MODEL`, and the last
+    // model either returns or throws above.
+    throw new ProviderUnavailableException(this.id);
+  }
+
+  private generateWithModel(
+    model: string,
+    request: AiGenerateRequest,
+  ): Promise<GenerateContentResponse> {
+    const thinkingConfig = thinkingConfigFor(model);
+    return withTimeout(
+      (signal) =>
+        this.getClient().models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: request.userPrompt }] }],
+          config: {
+            systemInstruction: request.systemPrompt,
+            temperature: request.options?.temperature ?? this.aiConfig.temperature,
+            topP: request.options?.topP ?? this.aiConfig.topP,
+            topK: request.options?.topK ?? this.aiConfig.topK,
+            maxOutputTokens: request.options?.maxTokens ?? this.aiConfig.maxTokens,
+            ...(thinkingConfig && { thinkingConfig }),
+            abortSignal: signal,
+          },
+        }),
+      request.options?.timeoutMs ?? this.aiConfig.timeoutMs,
+    );
+  }
+
+  /**
+   * Only a used-up quota (429) or an overloaded model (503) moves on to the
+   * next model: each Gemini model has its own free-tier quota and load.
+   * Any other failure (a timeout, a rejected request) would most likely
+   * repeat on the next model too, so it is not passed down the chain.
+   */
+  private shouldTryNextModel(error: unknown): boolean {
+    return (
+      error instanceof ApiError &&
+      (error.status === HttpStatus.TOO_MANY_REQUESTS ||
+        error.status === HttpStatus.SERVICE_UNAVAILABLE)
+    );
   }
 
   private getClient(): GoogleGenAI {
