@@ -199,3 +199,45 @@ export const DAILY_MOTIVATION: AiCapabilityDefinition<DailyMotivationResult> = {
   temperature: 0.9,
   maxTokens: 150,
 };
+
+/**
+ * Summary, priorities and motivation in one AI call, so the mobile card
+ * spends one provider request instead of three (the Gemini free tier only
+ * allows a few per minute). Each part is validated on its own: a part that
+ * is missing or doesn't match its schema becomes `null` while the others are
+ * kept. Only a response that can't be read as a JSON object fails the call
+ * (`InvalidProviderResponseException`, 502).
+ */
+const DAILY_OVERVIEW_SCHEMA = z.object({
+  summary: DAILY_SUMMARY_SCHEMA.nullable().catch(null),
+  // Unlike `/priorities`, an empty ranking is valid here: a user with no
+  // tasks today gets `[]` ("nothing to rank"), not a failed part.
+  priorities: z.array(DAILY_PRIORITY_SCHEMA).max(5).nullable().catch(null),
+  motivation: DAILY_MOTIVATION_SCHEMA.nullable().catch(null),
+});
+export type DailyOverviewResult = z.infer<typeof DAILY_OVERVIEW_SCHEMA>;
+
+export const DAILY_OVERVIEW: AiCapabilityDefinition<DailyOverviewResult> = {
+  id: 'daily-brief-overview',
+  templateId: 'assistant',
+  feature: 'assistant',
+  contextScope: {},
+  basePrompt:
+    "Using the caller's Planner tasks and Travel trips from the context above, produce three parts of today's brief in one answer. " +
+    "1) summary: today's priorities, key events worth calling out, and a single suggested focus for the day. " +
+    "2) priorities: a recommended ranking of today's existing tasks (an upcoming trip today should outrank a low-priority task); " +
+    '"suggestedRank" is a 1-based ordinal (1 = do first), not the stored priority field, and you are not changing any task. ' +
+    '3) motivation: one concise, friendly, motivational message that is specific to the tasks of this exact day — name a real task, ' +
+    'trip, or how busy or light the day is — and different every day; never a generic platitude that could apply to anyone on any day. ' +
+    'Everything here is a suggestion only.',
+  jsonShapeInstruction:
+    '{"summary": {"todayPriorities": string[], "keyEvents": string[], "suggestedFocus": string}, ' +
+    '"priorities": [{"taskTitle": string, "suggestedRank": number, "reason": string}], ' +
+    '"motivation": {"message": string}}',
+  outputSchema: DAILY_OVERVIEW_SCHEMA,
+  preferredProvider: GEMINI_PROVIDER_ID,
+  fallbackAllowed: true,
+  temperature: 0.6,
+  // Roughly the three separate capabilities' budgets combined (500 + 400 + 150).
+  maxTokens: 1200,
+};
