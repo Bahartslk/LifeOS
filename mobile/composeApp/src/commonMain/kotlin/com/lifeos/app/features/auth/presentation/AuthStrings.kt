@@ -92,6 +92,7 @@ internal object AuthStrings {
     fun passwordError(error: ValidationError): String = when (error) {
         ValidationError.EMPTY -> "Şifre gerekli."
         ValidationError.PASSWORD_TOO_SHORT -> "Şifre en az 8 karakter olmalı."
+        ValidationError.PASSWORD_TOO_LONG -> "Şifre en fazla 72 karakter olabilir."
         else -> GENERIC_FIELD_ERROR
     }
 
