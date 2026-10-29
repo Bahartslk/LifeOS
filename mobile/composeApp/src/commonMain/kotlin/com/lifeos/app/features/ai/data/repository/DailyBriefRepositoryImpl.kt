@@ -4,11 +4,14 @@ import com.lifeos.app.core.date.AppToday
 import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.features.ai.data.dto.DailyOverviewResultDto
 import com.lifeos.app.features.ai.data.dto.DailyPriorityDto
+import com.lifeos.app.features.ai.data.dto.DailyReminderDto
 import com.lifeos.app.features.ai.data.dto.DailySummaryResultDto
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
 import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import com.lifeos.app.features.ai.domain.model.DailyBrief
 import com.lifeos.app.features.ai.domain.model.DailyPriority
+import com.lifeos.app.features.ai.domain.model.DailyReminder
+import com.lifeos.app.features.ai.domain.model.ReminderRelatedTo
 import com.lifeos.app.features.ai.domain.model.DailySummary
 import com.lifeos.app.features.ai.domain.repository.DailyBriefRepository
 import kotlinx.coroutines.CancellationException
@@ -52,7 +55,7 @@ class DailyBriefRepositoryImpl(
                 cached = CachedBrief(date, brief)
                 Result.success(brief)
             }
-            brief.summary == null && brief.priorities == null && brief.motivation == null ->
+            brief.summary == null && brief.priorities == null && brief.motivation == null && brief.reminders == null ->
                 Result.failure(IllegalStateException("Daily brief is empty."))
             else -> Result.success(brief)
         }
@@ -71,7 +74,20 @@ private fun DailyOverviewResultDto.toDomain() = DailyBrief(
     summary = summary?.toDomain(),
     priorities = priorities?.toDomain(),
     motivation = motivation?.message?.trim()?.takeIf { it.isNotEmpty() },
+    reminders = reminders?.mapNotNull { it.toDomainOrNull() },
 )
+
+/** Drops a suggestion with a blank title or an unknown `relatedTo`; an unreadable date becomes `null`. */
+private fun DailyReminderDto.toDomainOrNull(): DailyReminder? {
+    val relatedTo = ReminderRelatedTo.entries.firstOrNull { it.name == relatedTo } ?: return null
+    val title = title.trim().takeIf { it.isNotEmpty() } ?: return null
+    return DailyReminder(
+        title = title,
+        reason = reason.trim(),
+        relatedTo = relatedTo,
+        recommendedDate = recommendedDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+    )
+}
 
 private fun DailySummaryResultDto.toDomain() = DailySummary(
     suggestedFocus = suggestedFocus.trim(),

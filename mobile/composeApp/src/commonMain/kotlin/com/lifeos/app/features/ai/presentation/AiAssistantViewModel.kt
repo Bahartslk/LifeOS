@@ -3,6 +3,8 @@ package com.lifeos.app.features.ai.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
+import com.lifeos.app.features.ai.domain.model.DailyReminder
+import com.lifeos.app.features.ai.domain.usecase.AddReminderToAgendaUseCase
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
 import com.lifeos.app.features.ai.domain.usecase.GetDailyBriefUseCase
 import com.lifeos.app.features.planner.domain.usecase.GetPlannerDashboardUseCase
@@ -41,6 +43,7 @@ class AiAssistantViewModel(
     private val getPlannerDashboard: GetPlannerDashboardUseCase,
     private val buildAiTaskContext: BuildAiTaskContextUseCase,
     private val getDailyBrief: GetDailyBriefUseCase,
+    private val addReminderToAgenda: AddReminderToAgendaUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiAssistantUiState())
@@ -64,7 +67,36 @@ class AiAssistantViewModel(
             is AiAssistantEvent.TaskClicked -> sendAction(AiAssistantAction.NavigateToTaskDetail(event.taskId))
             AiAssistantEvent.AddTaskClicked -> sendAction(AiAssistantAction.NavigateToCreateTask)
             AiAssistantEvent.DailyBriefRefreshClicked -> loadDailyBrief(forceRefresh = true)
+            is AiAssistantEvent.AddReminderToAgendaClicked -> addReminder(event.reminder)
         }
+    }
+
+    /**
+     * Saves one AI reminder suggestion as a task. A suggestion that is being
+     * saved or was already saved is ignored, so it can never be added twice.
+     * On success the task context reloads quietly, so the new task shows up.
+     */
+    private fun addReminder(reminder: DailyReminder) {
+        val brief = _uiState.value.dailyBrief
+        if (reminder in brief.addingReminders || reminder in brief.addedReminders) return
+        updateDailyBrief { it.copy(addingReminders = it.addingReminders + reminder) }
+        viewModelScope.launch {
+            addReminderToAgenda(reminder)
+                .onSuccess {
+                    updateDailyBrief {
+                        it.copy(addingReminders = it.addingReminders - reminder, addedReminders = it.addedReminders + reminder)
+                    }
+                    loadContext(showLoading = false)
+                }
+                .onFailure {
+                    updateDailyBrief { it.copy(addingReminders = it.addingReminders - reminder) }
+                    sendAction(AiAssistantAction.ShowMessage(AiAssistantStrings.REMINDER_ADD_ERROR_MESSAGE))
+                }
+        }
+    }
+
+    private fun updateDailyBrief(transform: (DailyBriefUiState) -> DailyBriefUiState) {
+        _uiState.update { it.copy(dailyBrief = transform(it.dailyBrief)) }
     }
 
     private fun loadContext(showLoading: Boolean = true) {
@@ -94,7 +126,8 @@ class AiAssistantViewModel(
             val result = getDailyBrief(forceRefresh)
             _uiState.update { state ->
                 val dailyBrief = result.fold(
-                    onSuccess = { brief -> DailyBriefUiState(isLoading = false, brief = brief) },
+                    // Keeps which reminders were already added, so a refresh can't re-enable them.
+                    onSuccess = { brief -> state.dailyBrief.copy(isLoading = false, brief = brief, errorMessage = null) },
                     // Keep the last brief on screen if a refresh fails.
                     onFailure = { error ->
                         val message = if (error is AiQuotaExceededException) {

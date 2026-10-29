@@ -5,6 +5,8 @@ import com.lifeos.app.core.network.AuthTokenProvider
 import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
 import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
+import com.lifeos.app.features.ai.domain.model.DailyReminder
+import com.lifeos.app.features.ai.domain.model.ReminderRelatedTo
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -146,6 +148,58 @@ class DailyBriefRepositoryImplTest {
         respondWith = { overview(ALL_PARTS) }
         assertTrue(repository.getDailyBrief().getOrThrow().isComplete)
         assertEquals(2, recordedRequests.size)
+    }
+
+    @Test
+    fun getDailyBrief_mapsReminders_dropsInvalidOnes() = runTest {
+        respondWith = {
+            overview(
+                """{"summary":$SUMMARY,"priorities":$PRIORITIES,"motivation":$MOTIVATION,"reminders":[
+                {"title":" Otel rezervasyonunu kontrol et ","reason":" Bir gün önce. ","relatedTo":"TRAVEL","recommendedDate":"2026-10-30"},
+                {"title":"Slaytları yedekle","reason":"","relatedTo":"PLANNER","recommendedDate":null},
+                {"title":"Bozuk tarih","reason":"x","relatedTo":"BOTH","recommendedDate":"30.10.2026"},
+                {"title":"Bilinmeyen tür","reason":"x","relatedTo":"WORK","recommendedDate":null},
+                {"title":"  ","reason":"x","relatedTo":"PLANNER","recommendedDate":null}]}""",
+            )
+        }
+
+        val reminders = repository.getDailyBrief().getOrThrow().reminders
+
+        assertEquals(
+            listOf(
+                DailyReminder("Otel rezervasyonunu kontrol et", "Bir gün önce.", ReminderRelatedTo.TRAVEL, LocalDate(2026, 10, 30)),
+                DailyReminder("Slaytları yedekle", "", ReminderRelatedTo.PLANNER, null),
+                DailyReminder("Bozuk tarih", "x", ReminderRelatedTo.BOTH, null),
+            ),
+            reminders,
+        )
+    }
+
+    @Test
+    fun getDailyBrief_nullOrMissingReminders_staysCompleteAndCached() = runTest {
+        respondWith = { overview("""{"summary":$SUMMARY,"priorities":$PRIORITIES,"motivation":$MOTIVATION,"reminders":null}""") }
+
+        val brief = repository.getDailyBrief().getOrThrow()
+        repository.getDailyBrief().getOrThrow()
+
+        assertNull(brief.reminders)
+        assertTrue(brief.isComplete)
+        assertEquals(1, recordedRequests.size)
+    }
+
+    @Test
+    fun getDailyBrief_onlyRemindersArrived_isAPartialBrief() = runTest {
+        respondWith = {
+            overview(
+                """{"summary":null,"priorities":null,"motivation":null,"reminders":[
+                {"title":"Slaytları yedekle","reason":"","relatedTo":"PLANNER","recommendedDate":null}]}""",
+            )
+        }
+
+        val brief = repository.getDailyBrief().getOrThrow()
+
+        assertEquals(1, brief.reminders?.size)
+        assertFalse(brief.isComplete)
     }
 
     @Test

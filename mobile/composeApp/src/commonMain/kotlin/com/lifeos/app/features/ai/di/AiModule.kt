@@ -3,6 +3,7 @@ package com.lifeos.app.features.ai.di
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
 import com.lifeos.app.features.ai.data.repository.DailyBriefRepositoryImpl
 import com.lifeos.app.features.ai.domain.repository.DailyBriefRepository
+import com.lifeos.app.features.ai.domain.usecase.AddReminderToAgendaUseCase
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
 import com.lifeos.app.features.ai.domain.usecase.GetDailyBriefUseCase
 import com.lifeos.app.features.ai.presentation.AiAssistantViewModel
@@ -26,7 +27,13 @@ val aiModule: Module = module {
     single<DailyBriefRepository> { DailyBriefRepositoryImpl(remoteDataSource = get()) }
     factory { GetDailyBriefUseCase(dailyBriefRepository = get()) }
     factory { BuildAiTaskContextUseCase() }
+    factory { AddReminderToAgendaUseCase(createTask = get()) }
     viewModel {
-        AiAssistantViewModel(getPlannerDashboard = get(), buildAiTaskContext = get(), getDailyBrief = get())
+        AiAssistantViewModel(
+            getPlannerDashboard = get(),
+            buildAiTaskContext = get(),
+            getDailyBrief = get(),
+            addReminderToAgenda = get(),
+        )
     }
 }

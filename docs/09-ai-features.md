@@ -59,15 +59,17 @@ flowchart TD
 
 ### Daily Brief on mobile
 
-The AI Assistant screen opens with a "Günün Özeti" card built from **one** backend call, `POST /api/v1/daily-brief/overview`, which returns all three parts from a single AI request (one request instead of three keeps the card within the AI provider's per-minute quota):
+The AI Assistant screen opens with a "Günün Özeti" card built from **one** backend call, `POST /api/v1/daily-brief/overview`, which returns all four parts from a single AI request (one request instead of four keeps the card within the AI provider's free-tier quota):
 
 | `result` field | Shown as |
 | --- | --- |
 | `summary` | "Bugünün odağı" (`suggestedFocus`) and "Öne çıkanlar" (`keyEvents`) |
 | `priorities` | "Önerilen sıra": tasks ordered by `suggestedRank`, each with its `reason`; an empty array means there is nothing to rank today |
 | `motivation` | "Günün motivasyonu" (`message`) |
+| `reminders` | "Hatırlatma önerileri": each suggestion's title, reason and suggested date, with an "Ajandaya ekle" button; hidden when `null` or empty |
 
-- The backend checks each part on its own and sends `null` for a part the AI got wrong; the other parts still show, with a note that the brief is incomplete. The card shows an error only when the request fails or all three parts are `null`. The task context below the card never waits for, or depends on, the AI.
+- The backend checks each part on its own and sends `null` for a part the AI got wrong; the other parts still show, with a note that the brief is incomplete. The card shows an error only when the request fails or all four parts are `null`. `reminders` is optional: when only it is missing, the brief still counts as complete (no note, cached for the day).
+- "Ajandaya ekle" saves the suggestion as a Planner task through `AddReminderToAgendaUseCase`, which calls Planner's `CreateTaskUseCase`: due on the suggested date (today when there is none or it has passed), `MEDIUM` priority, `TRAVEL` category for travel-related suggestions and `PERSONAL` otherwise, and the reason as the description. It is a normal task: no notification is scheduled (the backend doesn't store `hasReminder` yet; push notifications are planned separately). While saving, the button shows progress; afterwards it turns into a disabled "Eklendi", also after a refresh of the brief, so the same suggestion can't be added twice. A failure shows a snackbar and the button can be tapped again. The AI itself never creates a task. The task context below the card never waits for, or depends on, the AI.
 - A complete brief is cached in memory for the current day (`DailyBriefRepositoryImpl`). Switching tabs or returning to the screen does not call the AI again; the refresh button does. A partial brief is not cached, so the next load asks again.
 - AI calls use a 60-second client timeout (normal requests use 30 seconds), because the backend may retry a provider and fall back to another before answering.
 - The brief is a suggestion only. Its priority order never changes a task's stored priority.
