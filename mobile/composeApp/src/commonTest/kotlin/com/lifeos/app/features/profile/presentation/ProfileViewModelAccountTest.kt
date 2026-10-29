@@ -70,11 +70,17 @@ class ProfileViewModelAccountTest {
     }
 
     @Test
-    fun load_skipsTheTimezoneSync_whenItMatchesOrIsNotAnAreaLocationName() {
+    fun load_skipsTheTimezoneSync_whenItMatches() {
         createViewModel(deviceTimezone = "Europe/Istanbul")
-        createViewModel(deviceTimezone = "UTC")
 
         assertTrue(profileRepository.updatedTimezones.isEmpty())
+    }
+
+    @Test
+    fun load_sendsAliasTimezonesSuchAsGmtToo() {
+        createViewModel(deviceTimezone = "GMT")
+
+        assertEquals(listOf("GMT"), profileRepository.updatedTimezones)
     }
 
     // Editing the name

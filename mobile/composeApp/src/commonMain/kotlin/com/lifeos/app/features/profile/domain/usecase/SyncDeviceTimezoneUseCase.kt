@@ -7,8 +7,9 @@ import kotlinx.datetime.TimeZone
 /**
  * Keeps the backend's time zone in step with the device's. The backend uses
  * it to decide where "today" starts, e.g. for the daily chat limit.
- * Best effort, and skipped for ids the backend doesn't accept (e.g. "UTC" or
- * a fixed offset; it expects an IANA "Area/Location" name).
+ * Best effort: the backend accepts any IANA name (including "UTC" and
+ * "GMT") and rejects the rest, such as a custom "GMT+03:00" id, and a
+ * rejected or failed update changes nothing on the device.
  */
 class SyncDeviceTimezoneUseCase(
     private val profileRepository: ProfileRepository,
@@ -16,17 +17,12 @@ class SyncDeviceTimezoneUseCase(
 ) {
     suspend operator fun invoke(storedTimezone: String) {
         val timezone = deviceTimezone()
-        if (timezone == storedTimezone || !IANA_AREA_LOCATION.matches(timezone)) return
+        if (timezone == storedTimezone) return
         try {
             profileRepository.updateTimezone(timezone)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
         }
-    }
-
-    private companion object {
-        // Mirrors the backend's TIMEZONE_PATTERN (preference-fields.dto.ts).
-        val IANA_AREA_LOCATION = Regex("^[A-Za-z_]+/[A-Za-z_]+$")
     }
 }
