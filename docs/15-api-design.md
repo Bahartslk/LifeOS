@@ -64,6 +64,8 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 | GET | `/api/v1/users/me/sessions` | FR-PROFILE-05 | Yes |
 | DELETE | `/api/v1/users/me/sessions/:id` | FR-PROFILE-05 | Yes |
 
+**Time zone rule** (`timezone` in `PATCH /users/me` and `PATCH /users/preferences`): any IANA time zone name the server's `Intl` knows, up to 64 characters. That includes aliases such as `UTC`, `Etc/UTC` and `GMT`, and names with more than one slash such as `America/Argentina/Buenos_Aires`. UTC offsets (`+03:00`, `GMT+03:00`) and unknown names are a `400`. The value is stored as sent; every server-side use (the user's "today", the chat limit day, the AI prompt date) goes through `Intl`, which understands the aliases.
+
 `DELETE /users/me` permanently deletes the caller's account and **all** of its data: tasks, task lists, trips and their itinerary items, sessions (refresh tokens) and the AI chat counter (`ai_chat_usage`). It is a hard delete through the database's `ON DELETE CASCADE` rules (see [14-database-design.md](14-database-design.md#foreign-keys-and-cascade-rules)), so the email can be used for a new sign-up afterwards.
 
 - **Body:** `{ "password": string }`, the current password, to confirm. Unknown fields → `400`.
@@ -76,7 +78,7 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 - Profile shows the name and email from the stored session at once, then refreshes them from `GET /users/me`. If that call fails, the session values stay.
 - "Profili Düzenle" saves the name with `PATCH /users/me` and also updates the stored session, so Home's greeting changes too. Same rules as sign-up: 2–100 characters.
 - A theme change is saved on the device first, then copied to `PATCH /users/preferences` (best effort; the device setting is what the app uses).
-- When the profile loads and the device time zone differs from the stored one, the device's is sent with `PATCH /users/preferences`. The backend uses it to decide where "today" starts, e.g. for the daily chat limit. Ids that don't match the backend's "Area/Location" format (such as `UTC`) are skipped.
+- When the profile loads and the device time zone differs from the stored one, the device's is sent with `PATCH /users/preferences`. The backend uses it to decide where "today" starts, e.g. for the daily chat limit. If the backend rejects the id (see the time zone rule below), nothing changes on the device.
 - "Hesabı Sil" opens a dialog with the warning "Bu işlem geri alınamaz, tüm görevlerin ve seyahatlerin silinir." and a password field. Results:
   - `403`: "Şifre yanlış. Hesabın silinmedi."
   - `429`: "Çok fazla deneme, biraz sonra tekrar dene."
