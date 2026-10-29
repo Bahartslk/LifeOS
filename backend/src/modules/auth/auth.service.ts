@@ -1,9 +1,9 @@
 import { randomBytes, randomUUID, createHash } from 'crypto';
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { User } from '@prisma/client';
+import { RefreshToken, User } from '@prisma/client';
 import { AppConfig } from '../../config/configuration';
 import { parseDurationMs } from '../../common/utils/duration.util';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
@@ -36,6 +36,8 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('lifeos-timing-attack-mitigation', 1
  */
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly refreshTokensRepository: RefreshTokensRepository,
@@ -81,10 +83,12 @@ export class AuthService {
     const record = await this.refreshTokensRepository.findByTokenHash(tokenHash);
 
     if (!record) {
+      this.logRefreshRejected('unknown token');
       throw new UnauthorizedException('Invalid refresh token.');
     }
 
     if (record.revokedAt) {
+      this.logRefreshRejected('revoked token presented again; revoking its whole family', record);
       // A revoked token (whether from a prior rotation, a prior reuse
       // attempt, or an explicit logout) must never be usable again.
       // Presenting one is treated as a possible replay/theft signal
@@ -95,11 +99,13 @@ export class AuthService {
     }
 
     if (record.expiresAt < new Date()) {
+      this.logRefreshRejected('expired token', record);
       throw new UnauthorizedException('Refresh token has expired.');
     }
 
     const user = await this.usersService.findById(record.userId);
     if (!user) {
+      this.logRefreshRejected('account no longer exists', record);
       throw new UnauthorizedException('Account no longer exists.');
     }
 
@@ -148,6 +154,19 @@ export class AuthService {
   /** SHA-256, not bcrypt — see the `RefreshToken` model's doc comment in `prisma/schema.prisma` for why. */
   private hashToken(rawToken: string): string {
     return createHash('sha256').update(rawToken).digest('hex');
+  }
+
+  /**
+   * Why a refresh was rejected, so a client that ends up signed out can be
+   * diagnosed from the server log (the HTTP log records only successful
+   * requests). Logs the token's id, family and user, never the token or its
+   * hash.
+   */
+  private logRefreshRejected(reason: string, record?: RefreshToken): void {
+    const ids = record
+      ? ` (token ${record.id}, family ${record.familyId}, user ${record.userId})`
+      : '';
+    this.logger.warn(`Refresh rejected: ${reason}${ids}.`);
   }
 
   private hashPassword(password: string): Promise<string> {
