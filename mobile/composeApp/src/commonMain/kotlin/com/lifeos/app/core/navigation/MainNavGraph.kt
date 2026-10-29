@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.lifeos.app.features.ai.presentation.AiAssistantRoute
+import com.lifeos.app.features.ai.presentation.chat.AiChatRoute
 import com.lifeos.app.features.home.presentation.HomeRoute
 import com.lifeos.app.features.planner.presentation.CalendarRoute
 import com.lifeos.app.features.planner.presentation.CreateTaskRoute
@@ -42,7 +43,8 @@ fun NavGraphBuilder.mainGraph(
         HomeRoute(
             onNavigateToTravel = { navController.navigateToMainTab(Destination.Travel.route) },
             onNavigateToPlanner = { navController.navigateToMainTab(Destination.Planner.route) },
-            onNavigateToAiChat = { navController.navigateToMainTab(Destination.AiChat.route) },
+            // "AI Asistanına Sor" opens the chat directly.
+            onNavigateToAiChat = { navController.navigate(Destination.AiConversation.route) },
             onNavigateToProfile = { navController.navigateToMainTab(Destination.Profile.route) },
             onNavigateToTaskDetail = { taskId ->
                 navController.navigate(Destination.TaskDetail.createRoute(taskId))
@@ -122,7 +124,11 @@ fun NavGraphBuilder.mainGraph(
                 navController.navigate(Destination.TaskDetail.createRoute(taskId))
             },
             onNavigateToCreateTask = { navController.navigate(Destination.CreateTask.route) },
+            onNavigateToChat = { navController.navigate(Destination.AiConversation.route) },
         )
+    }
+    composable(Destination.AiConversation.route) {
+        AiChatRoute(onNavigateBack = { navController.popBackStack() })
     }
     composable(Destination.Profile.route) { ProfileRoute(onLoggedOut = onLoggedOut) }
 }

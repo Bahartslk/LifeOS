@@ -33,6 +33,8 @@ data class ApiErrorResponse(
     val error: String,
     @Serializable(with = FlexibleMessageSerializer::class)
     val message: String,
+    /** Optional machine-readable reason, e.g. `CHAT_DAILY_LIMIT_REACHED`; absent for most errors. */
+    val code: String? = null,
     val path: String? = null,
     val timestamp: String? = null,
 )
