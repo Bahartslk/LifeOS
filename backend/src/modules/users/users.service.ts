@@ -72,6 +72,11 @@ export class UsersService {
     return { success: true };
   }
 
+  /** Stores a new password hash (hashing is `AuthService`'s job). `false` if the account no longer exists. */
+  updatePasswordHash(userId: string, passwordHash: string): Promise<boolean> {
+    return this.usersRepository.updatePasswordHash(userId, passwordHash);
+  }
+
   async getProfile(userId: string): Promise<UserProfileResponseDto> {
     const user = await this.usersRepository.findById(userId);
     if (!user) {

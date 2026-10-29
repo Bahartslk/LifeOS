@@ -63,6 +63,15 @@ export class UsersRepository {
     await this.prisma.user.delete({ where: { id } });
   }
 
+  /** Replaces the password hash; `false` if the account no longer exists. Kept apart from `update`, which only takes profile fields. */
+  async updatePasswordHash(id: string, passwordHash: string): Promise<boolean> {
+    const result = await this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
+      data: { passwordHash },
+    });
+    return result.count > 0;
+  }
+
   async update(id: string, data: UpdateUserData): Promise<User | null> {
     const result = await this.prisma.user.updateMany({
       where: { id, deletedAt: null },

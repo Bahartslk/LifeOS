@@ -43,4 +43,13 @@ export class RefreshTokensRepository {
       data: { revokedAt: new Date() },
     });
   }
+
+  /** Revokes every still-active token of a user, i.e. signs them out of every session. Returns how many were revoked. */
+  async revokeAllForUser(userId: string): Promise<number> {
+    const result = await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count;
+  }
 }

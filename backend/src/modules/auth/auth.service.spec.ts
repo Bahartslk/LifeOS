@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from 'crypto';
-import { ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken, ThemeMode, User, UserRole } from '@prisma/client';
@@ -60,10 +67,16 @@ function makeStoredToken(overrides: Partial<RefreshToken> = {}): RefreshToken {
 
 describe('AuthService', () => {
   let usersService: jest.Mocked<
-    Pick<UsersService, 'findByEmail' | 'findById' | 'create' | 'toPublicUser'>
+    Pick<
+      UsersService,
+      'findByEmail' | 'findById' | 'create' | 'toPublicUser' | 'updatePasswordHash'
+    >
   >;
   let refreshTokens: jest.Mocked<
-    Pick<RefreshTokensRepository, 'create' | 'findByTokenHash' | 'revokeById' | 'revokeFamily'>
+    Pick<
+      RefreshTokensRepository,
+      'create' | 'findByTokenHash' | 'revokeById' | 'revokeFamily' | 'revokeAllForUser'
+    >
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let configValues: Record<string, unknown>;
@@ -75,12 +88,14 @@ describe('AuthService', () => {
       findById: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
       toPublicUser: jest.fn(),
+      updatePasswordHash: jest.fn().mockResolvedValue(true),
     };
     refreshTokens = {
       create: jest.fn().mockResolvedValue({}),
       findByTokenHash: jest.fn().mockResolvedValue(null),
       revokeById: jest.fn().mockResolvedValue(undefined),
       revokeFamily: jest.fn().mockResolvedValue(undefined),
+      revokeAllForUser: jest.fn().mockResolvedValue(3),
     };
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-access-token') };
     configValues = {
@@ -461,6 +476,63 @@ describe('AuthService', () => {
 
       expect(refreshTokens.revokeById).not.toHaveBeenCalled();
       expect(refreshTokens.revokeFamily).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    const user = makeUser();
+    const dto = { currentPassword: 'correct-password', newPassword: 'brand-new-password' };
+
+    beforeEach(() => usersService.findById.mockResolvedValue(user));
+
+    it('stores a bcrypt hash of the new password, signs out every session and issues a new pair', async () => {
+      const result = await service.changePassword(user.id, dto);
+
+      const [, storedHash] = usersService.updatePasswordHash.mock.calls[0];
+      expect(usersService.updatePasswordHash).toHaveBeenCalledWith(user.id, expect.any(String));
+      await expect(bcryptModule.compare(dto.newPassword, storedHash)).resolves.toBe(true);
+      expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      expect(result).toEqual({
+        accessToken: 'signed-access-token',
+        refreshToken: expect.stringMatching(/^[0-9a-f]{80}$/),
+      });
+      const stored = storedTokenData();
+      expect(stored.userId).toBe(user.id);
+      expect(stored.familyId).toMatch(UUID_PATTERN);
+      expect(stored.tokenHash).toBe(sha256(result.refreshToken));
+    });
+
+    it('revokes the old sessions before issuing the new token, so the new one survives', async () => {
+      await service.changePassword(user.id, dto);
+
+      expect(refreshTokens.revokeAllForUser.mock.invocationCallOrder[0]).toBeLessThan(
+        refreshTokens.create.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('rejects a wrong current password with 403 and changes nothing', async () => {
+      await expect(
+        service.changePassword(user.id, { ...dto, currentPassword: 'wrong-password' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(usersService.updatePasswordHash).not.toHaveBeenCalled();
+      expect(refreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+      expect(refreshTokens.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a new password equal to the current one with 400', async () => {
+      await expect(
+        service.changePassword(user.id, { ...dto, newPassword: dto.currentPassword }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(usersService.updatePasswordHash).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when the account no longer exists', async () => {
+      usersService.findById.mockResolvedValue(null);
+
+      await expect(service.changePassword(user.id, dto)).rejects.toThrow(NotFoundException);
+      expect(refreshTokens.revokeAllForUser).not.toHaveBeenCalled();
     });
   });
 });
