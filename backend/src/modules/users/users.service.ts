@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+import { DeleteAccountResponseDto } from './dto/delete-account-response.dto';
 import { CreateUserData, UsersRepository } from './repositories/users.repository';
 import { PublicUserDto } from './dto/public-user.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
@@ -19,6 +21,8 @@ import { UpdatePreferencesDto } from './dto/update-preferences.dto';
  */
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly usersRepository: UsersRepository) {}
 
   findByEmail(email: string): Promise<User | null> {
@@ -42,6 +46,30 @@ export class UsersService {
       role: user.role,
       createdAt: user.createdAt,
     };
+  }
+
+  /**
+   * `DELETE /users/me`: permanently deletes the caller's account and all of
+   * its data once the current password is confirmed. A hard delete, not a
+   * soft one: app stores and data-protection rules (KVKK/GDPR) expect the
+   * data to be gone, nothing needs to be kept, and it frees the email for a
+   * new sign-up. See `UsersRepository.deleteById` for the cascade.
+   *
+   * A wrong password is `403`, not `401`: the caller's session is valid, and
+   * a `401` would make clients try to refresh their token.
+   */
+  async deleteAccount(userId: string, password: string): Promise<DeleteAccountResponseDto> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      throw new ForbiddenException('Password is incorrect.');
+    }
+
+    await this.usersRepository.deleteById(user.id);
+    this.logger.log(`Account deleted (user ${user.id}).`);
+    return { success: true };
   }
 
   async getProfile(userId: string): Promise<UserProfileResponseDto> {

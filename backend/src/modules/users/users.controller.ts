@@ -1,9 +1,31 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiTooManyRequestsResponse,
+} from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { THROTTLE_WINDOW_MS, throttleLimits } from '../../config/throttle.config';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
 import { UsersService } from './users.service';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { DeleteAccountResponseDto } from './dto/delete-account-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
@@ -40,6 +62,27 @@ export class UsersController {
     @Body() dto: UpdateProfileDto,
   ): Promise<UserProfileResponseDto> {
     return this.usersService.updateProfile(user.sub, dto);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.accountDeletion } })
+  @ApiOperation({
+    summary:
+      "Permanently delete the caller's account and all of its data (tasks, trips, sessions, AI chat usage), after confirming the password",
+  })
+  @ApiOkResponse({ type: DeleteAccountResponseDto })
+  @ApiBadRequestResponse({ description: 'Missing or empty password.' })
+  @ApiForbiddenResponse({
+    description: 'Password is incorrect. Nothing is deleted. (403, not 401: the session is valid.)',
+  })
+  @ApiNotFoundResponse({ description: 'The account no longer exists.' })
+  @ApiTooManyRequestsResponse({ description: 'Too many deletion attempts from this IP.' })
+  deleteMe(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: DeleteAccountDto,
+  ): Promise<DeleteAccountResponseDto> {
+    return this.usersService.deleteAccount(user.sub, dto.password);
   }
 
   @Patch('preferences')
