@@ -45,6 +45,8 @@ internal class FakeAuthRepository : AuthRepository {
     override suspend fun register(fullName: String, email: String, password: String): Result<AuthSession> =
         error("unused")
     override suspend fun requestPasswordReset(email: String): Result<Unit> = error("unused")
+    override suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> =
+        error("unused")
     override suspend fun getSession(): AuthSession =
         AuthSession(accessToken = "a", refreshToken = "r", user = AuthUser(email = "u@example.com", fullName = sessionName))
 

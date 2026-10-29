@@ -7,4 +7,7 @@ enum class SignInNotice {
 
     /** The user deleted their account. */
     ACCOUNT_DELETED,
+
+    /** The user set a new password with an emailed code and now signs in with it. */
+    PASSWORD_RESET,
 }

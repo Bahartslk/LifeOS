@@ -2,7 +2,10 @@ package com.lifeos.app.features.auth.data.remote
 
 import com.lifeos.app.core.network.ApiConfig
 import com.lifeos.app.core.network.dataOrThrow
+import com.lifeos.app.features.auth.data.dto.ForgotPasswordRequestDto
 import com.lifeos.app.features.auth.data.dto.LoginRequestDto
+import com.lifeos.app.features.auth.data.dto.PasswordResetResponseDto
+import com.lifeos.app.features.auth.data.dto.ResetPasswordRequestDto
 import com.lifeos.app.features.auth.data.dto.LoginResponseDto
 import com.lifeos.app.features.auth.data.dto.LogoutResponseDto
 import com.lifeos.app.features.auth.data.dto.RefreshTokenRequestDto
@@ -62,6 +65,22 @@ class AuthRemoteDataSource(private val httpClient: HttpClient) {
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(RefreshTokenRequestDto(refreshToken = refreshToken))
+        }
+        return response.dataOrThrow()
+    }
+
+    suspend fun forgotPassword(email: String): PasswordResetResponseDto {
+        val response = httpClient.post(endpoint("auth/forgot-password")) {
+            contentType(ContentType.Application.Json)
+            setBody(ForgotPasswordRequestDto(email = email))
+        }
+        return response.dataOrThrow()
+    }
+
+    suspend fun resetPassword(email: String, code: String, newPassword: String): PasswordResetResponseDto {
+        val response = httpClient.post(endpoint("auth/reset-password")) {
+            contentType(ContentType.Application.Json)
+            setBody(ResetPasswordRequestDto(email = email, code = code, newPassword = newPassword))
         }
         return response.dataOrThrow()
     }
