@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken, ThemeMode, User, UserRole } from '@prisma/client';
@@ -348,6 +348,67 @@ describe('AuthService', () => {
       const { expiresAt } = storedTokenData();
       expect(expiresAt.getTime()).toBeGreaterThanOrEqual(before + 15 * 60 * 1000);
       expect(expiresAt.getTime()).toBeLessThanOrEqual(after + 15 * 60 * 1000);
+    });
+
+    describe('logs why a refresh was rejected, never the token', () => {
+      let warn: jest.SpyInstance;
+
+      beforeEach(() => {
+        warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      });
+
+      function loggedLine(): string {
+        expect(warn).toHaveBeenCalledTimes(1);
+        const [line] = warn.mock.calls[0] as [string];
+        expect(line).not.toContain(presented);
+        expect(line).not.toContain(sha256(presented));
+        return line;
+      }
+
+      it('unknown token', async () => {
+        await expect(service.refresh({ refreshToken: presented })).rejects.toThrow();
+
+        expect(loggedLine()).toBe('Refresh rejected: unknown token.');
+      });
+
+      it.each([
+        [
+          'a revoked token',
+          { revokedAt: new Date(Date.now() - 1000) },
+          'revoked token presented again',
+        ],
+        ['an expired token', { expiresAt: new Date(Date.now() - 1000) }, 'expired token'],
+      ])('%s, with the token id, family and user', async (_label, overrides, reason) => {
+        const record = makeStoredToken(overrides);
+        refreshTokens.findByTokenHash.mockResolvedValue(record);
+
+        await expect(service.refresh({ refreshToken: presented })).rejects.toThrow();
+
+        const line = loggedLine();
+        expect(line).toContain(reason);
+        expect(line).toContain(
+          `(token ${record.id}, family ${record.familyId}, user ${record.userId})`,
+        );
+      });
+
+      it('an account that no longer exists', async () => {
+        refreshTokens.findByTokenHash.mockResolvedValue(makeStoredToken());
+        usersService.findById.mockResolvedValue(null);
+
+        await expect(service.refresh({ refreshToken: presented })).rejects.toThrow();
+
+        expect(loggedLine()).toContain('account no longer exists');
+      });
+
+      it('nothing for a successful refresh', async () => {
+        const user = makeUser();
+        refreshTokens.findByTokenHash.mockResolvedValue(makeStoredToken({ userId: user.id }));
+        usersService.findById.mockResolvedValue(user);
+
+        await service.refresh({ refreshToken: presented });
+
+        expect(warn).not.toHaveBeenCalled();
+      });
     });
   });
 
