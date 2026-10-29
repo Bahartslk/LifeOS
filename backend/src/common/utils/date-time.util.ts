@@ -72,6 +72,27 @@ export function dateInTimeZone(instant: Date, timeZone: string): string {
   return instant.toISOString().slice(0, 10);
 }
 
+/**
+ * Whether `value` is an IANA time zone name the runtime knows, e.g.
+ * "Europe/Istanbul", "America/Argentina/Buenos_Aires", "Etc/GMT-3", "UTC",
+ * "Etc/UTC" or "GMT". Checked through `Intl` itself, since every place that
+ * uses `User.timezone` (see `dateInTimeZone`) goes through `Intl` too.
+ * `Intl.supportedValuesOf('timeZone')` can't be used as the list: it leaves
+ * out aliases such as "UTC", "Etc/UTC" and "GMT". UTC offsets like "+03:00"
+ * are rejected: `Intl` accepts them, but they are not IANA names.
+ */
+export function isIanaTimeZone(value: unknown): value is string {
+  if (typeof value !== 'string' || value.trim() !== value || !/^[A-Za-z]/.test(value)) {
+    return false;
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Today's calendar date ("YYYY-MM-DD") in `timeZone`; `now` is a parameter only so callers' tests can pin the clock. */
 export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
   return dateInTimeZone(now, timeZone);

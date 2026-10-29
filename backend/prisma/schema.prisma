@@ -80,7 +80,7 @@ model User {
   /// sharing/social model exists in this app), just a self-description on
   /// the caller's own profile screen.
   bio                     String?
-  /// IANA-style "Area/Location" string (e.g. "Europe/Istanbul"), validated
+  /// IANA time zone name (e.g. "Europe/Istanbul", "UTC", "GMT"), validated
   /// at the DTO layer, not a Postgres enum — the IANA tz database has
   /// hundreds of values and changes over time, unlike `themePreference`'s
   /// fixed 3-value set. Defaults to the project's Turkish-user assumption
