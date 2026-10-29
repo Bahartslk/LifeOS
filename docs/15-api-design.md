@@ -59,9 +59,17 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 | GET | `/api/v1/users/me` | FR-PROFILE-01 | Yes |
 | PATCH | `/api/v1/users/me` | FR-PROFILE-02 | Yes |
 | PATCH | `/api/v1/users/preferences` | FR-PROFILE-04 | Yes |
+| DELETE | `/api/v1/users/me` | Account deletion (app stores, KVKK/GDPR) | Yes |
 | PATCH | `/api/v1/users/me/password` | FR-PROFILE-03 | Yes |
 | GET | `/api/v1/users/me/sessions` | FR-PROFILE-05 | Yes |
 | DELETE | `/api/v1/users/me/sessions/:id` | FR-PROFILE-05 | Yes |
+
+`DELETE /users/me` permanently deletes the caller's account and **all** of its data: tasks, task lists, trips and their itinerary items, sessions (refresh tokens) and the AI chat counter (`ai_chat_usage`). It is a hard delete through the database's `ON DELETE CASCADE` rules (see [14-database-design.md](14-database-design.md#foreign-keys-and-cascade-rules)), so the email can be used for a new sign-up afterwards.
+
+- **Body:** `{ "password": string }`, the current password, to confirm. Unknown fields → `400`.
+- **Responses:** `200 { "success": true }`; `400` missing or empty password; `401` no or invalid token; **`403` wrong password** (nothing is deleted; `403`, not `401`, because the session itself is valid and a `401` would make clients try to refresh their token); `404` the account no longer exists.
+- **Rate limit:** 5 attempts per minute per client IP (`THROTTLE_ACCOUNT_DELETION_LIMIT`), then `429`. Every request to the route counts, including failed ones.
+- The server logs only the deleted user's id.
 
 `PATCH /users/me/password` (FR-PROFILE-03) and the session-management pair (FR-PROFILE-05) remain undelivered — Sprint 17.0's explicit scope was "Do NOT implement: Password reset" and its 3-route API list had no session routes. See `backend/src/modules/README.md` for the suggested next step.
 

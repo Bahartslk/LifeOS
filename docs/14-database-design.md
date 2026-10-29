@@ -172,7 +172,9 @@ Every foreign key has an explicit `ON DELETE` behavior — none are left to the 
 | `itinerary_items.task_id` | `tasks.id` | `SET NULL` | Sprint 16.0's Planner integration link. `ItineraryItem` is the first-class record; if its linked `Task` is ever hard-deleted independently (not the normal path — Planner only soft-deletes), the item just loses its link rather than being destroyed. |
 | `ai_messages.conversation_id` | `ai_conversations.id` | `CASCADE` | Messages have no meaning outside their conversation. |
 
-`CASCADE` here applies to **hard deletes only**. Routine user-facing deletion of `users`, `trips`, `task_lists`, and `tasks` is a soft delete (`deleted_at` set), which does not trigger any `ON DELETE` behavior at all — cascades only activate for genuine row removal (e.g., a GDPR-style erasure job or scheduled purge of long-soft-deleted records).
+`CASCADE` here applies to **hard deletes only**. Routine user-facing deletion of `trips`, `task_lists`, and `tasks` is a soft delete (`deleted_at` set), which does not trigger any `ON DELETE` behavior at all — cascades only activate for genuine row removal.
+
+**Account deletion is a hard delete.** `DELETE /api/v1/users/me` (see [15-api-design.md](15-api-design.md#users--profile)) removes the `users` row, and the cascades above remove every row the user owns in the same statement: `refresh_tokens`, `task_lists`, `tasks`, `trips` (and through them `itinerary_items`) and `ai_chat_usage`. Nothing is kept: the app stores and KVKK/GDPR expect the data to be gone, and a soft-deleted user would also block re-registering the same email, since the case-insensitive email index is not partial. No code path sets `users.deleted_at`, so the admin panel's deleted-user counts stay at zero.
 
 ## Schema
 

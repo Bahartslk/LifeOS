@@ -81,4 +81,6 @@ Phases are sequenced by dependency, not fixed calendar dates: each phase builds 
 
 ## Notes
 
+**Before a Google Play release:** Google Play requires apps that let users create an account to offer, besides in-app deletion (`DELETE /api/v1/users/me`, in the Profile screen), a **web link** where a user can request account and data deletion without installing the app. Not built yet: it will be added together with the public privacy policy page if and when a store release is decided.
+
 This roadmap reflects current product intent and will shift as the MVP surfaces real user feedback. Phase order should be revisited whenever [02-product-vision.md](02-product-vision.md) or [03-user-personas.md](03-user-personas.md) is revised.
