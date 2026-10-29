@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -15,6 +16,12 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
 import { AuthService } from './auth.service';
+import { PasswordResetService } from './password-reset.service';
+import {
+  ForgotPasswordDto,
+  PasswordResetResponseDto,
+  ResetPasswordDto,
+} from './dto/password-reset.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -30,7 +37,10 @@ import { LogoutResponseDto } from './dto/logout-response.dto';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly passwordResetService: PasswordResetService,
+  ) {}
 
   @Post('register')
   @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.register } })
@@ -78,5 +88,39 @@ export class AuthController {
     @CurrentUser() user: JwtPayload,
   ): Promise<LogoutResponseDto> {
     return this.authService.logout(dto, user.sub);
+  }
+
+  @Post('forgot-password')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.forgotPassword } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Email a 6-digit password reset code. Answers the same for every address, registered or not',
+  })
+  @ApiOkResponse({ type: PasswordResetResponseDto })
+  @ApiBadRequestResponse({ description: 'Missing or malformed email.' })
+  @ApiTooManyRequestsResponse({
+    description:
+      'Too many requests from this IP, or too many codes for this email in the last hour (code: PASSWORD_RESET_EMAIL_LIMIT).',
+  })
+  forgotPassword(@Body() dto: ForgotPasswordDto): PasswordResetResponseDto {
+    return this.passwordResetService.requestCode(dto.email);
+  }
+
+  @Post('reset-password')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.resetPassword } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Set a new password with the emailed code. Signs out every session; the user then signs in with the new password',
+  })
+  @ApiOkResponse({ type: PasswordResetResponseDto })
+  @ApiBadRequestResponse({
+    description:
+      'Validation failed, or the code is wrong, expired, used up or unknown (code: INVALID_RESET_CODE).',
+  })
+  @ApiTooManyRequestsResponse({ description: 'Too many attempts from this IP.' })
+  resetPassword(@Body() dto: ResetPasswordDto): Promise<PasswordResetResponseDto> {
+    return this.passwordResetService.resetPassword(dto.email, dto.code, dto.newPassword);
   }
 }

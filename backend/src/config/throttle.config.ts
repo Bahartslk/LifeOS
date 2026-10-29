@@ -31,4 +31,9 @@ export const throttleLimits = {
   accountDeletion: limitFromEnv('THROTTLE_ACCOUNT_DELETION_LIMIT', 5),
   // PATCH /users/me/password checks the current password, so the same reasoning applies.
   passwordChange: limitFromEnv('THROTTLE_PASSWORD_CHANGE_LIMIT', 5),
+  // Asking for a reset code sends an email; the per-address limit is separate
+  // (PASSWORD_RESET_EMAIL_HOURLY_LIMIT, see PasswordResetEmailLimiter).
+  forgotPassword: limitFromEnv('THROTTLE_FORGOT_PASSWORD_LIMIT', 5),
+  // Guessing a code: each code also stops working after a few wrong tries.
+  resetPassword: limitFromEnv('THROTTLE_RESET_PASSWORD_LIMIT', 10),
 };
