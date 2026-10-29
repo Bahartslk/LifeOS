@@ -75,11 +75,21 @@ The AI Assistant screen opens with a "Günün Özeti" card built from **one** ba
 - The brief is a suggestion only. Its priority order never changes a task's stored priority.
 - The backend needs `GEMINI_API_KEY` (or `OPENROUTER_API_KEY`) set; without one, every part fails and the card shows its error message.
 
+### AI chat
+
+A short, **stateless** chat with the assistant: `POST /api/v1/ai/chat` with `{ message, history }` returns `{ reply, remainingMessages }` (see [15-api-design.md](15-api-design.md#ai-chat)).
+
+- **Stateless:** the server stores no conversation. The client sends the recent turns it wants remembered (at most 8, oldest first); the new message is at most 500 characters. Persistent conversation history (`ai_conversations`/`ai_messages`, FR-AI-03) is deferred until after the presentation.
+- **Context and tone:** the shared `assistant` prompt template gives the model the user's Planner tasks and Travel trips. Replies are in Turkish and short (at most 4 sentences). The assistant only suggests: it never creates, changes, completes or deletes anything, and when asked it explains how the user can do it in the app.
+- **Prompt injection:** the history and the new message are placed after the instructions in clearly delimited `<history>`/`<message>` blocks, labeled as quoted data, and the instructions tell the model to ignore anything in them that tries to change its rules. The block markers are stripped from the user's text, so it can't close a block and pose as instructions.
+- **Daily limit:** each user may send `AI_CHAT_DAILY_LIMIT` messages a day (default 5), counted in the user's own time zone (`users.timezone`, default `Europe/Istanbul`), so the limit resets at the user's midnight. The count lives in `ai_chat_usage` (one row per user per day, no message content) and is reserved with a single atomic upsert before the AI call, so concurrent messages can't exceed the limit; if the AI call fails, the message is given back. When the limit is used up the endpoint answers `429` with `code: "CHAT_DAILY_LIMIT_REACHED"`; a `429` without that code means the AI provider's own quota is used up.
+- Uses the same Gemini model chain as every other capability (see [12-project-architecture.md](12-project-architecture.md#ai-service-boundaries)).
+
 ## Data Requirements
 
 - The AI module reads only the requesting user's own trips, itinerary items, and tasks — no cross-user data is ever included in a prompt.
 - Data passed to Gemini is limited to what is relevant to the specific request (e.g., a single trip's destination and dates for itinerary suggestions), not the user's entire history.
-- Conversations and messages are persisted (see [14-database-design.md](14-database-design.md#entities)) so users can review AI Conversation History (FR-AI-03).
+- AI chat stores no conversation content, only a per-user daily message count (`ai_chat_usage`). Persisting conversations and messages for AI Conversation History (FR-AI-03, see [14-database-design.md](14-database-design.md#entities)) is planned for after the presentation.
 
 ## Model Considerations
 

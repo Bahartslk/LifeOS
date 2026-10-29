@@ -376,7 +376,15 @@ All four AI-backed routes reuse `AiCapabilityService`/`ProviderRouter`/
 this. `result`'s shape is schema-validated (the same Zod-based pipeline
 Sprint 18B.5 built) before any response is ever sent.
 
-### AI Assistant (not yet implemented)
+### AI chat
+
+| Method | Path | Body | Auth Required |
+| --- | --- | --- | --- |
+| POST | `/api/v1/ai/chat` | `{ message: string, history?: { role: "user" \| "assistant", text: string }[] }` | Yes |
+
+A short, stateless chat turn (FR-AI-01, FR-AI-02; see [09-ai-features.md](09-ai-features.md#ai-chat)). `message` is 1–500 characters; `history` holds at most 8 earlier turns, oldest first, each up to 2,000 characters. The response is `{ reply, remainingMessages }`: the assistant's short Turkish reply (a suggestion only; nothing is created, changed or stored) and how many messages the user can still send today. Each user may send `AI_CHAT_DAILY_LIMIT` messages a day (default 5), counted in the user's own time zone; once they are used up the endpoint answers `429` with `code: "CHAT_DAILY_LIMIT_REACHED"` (see [Error Handling](#error-handling)). A failed AI call does not use up a message. Provider errors are the same as every AI capability's (`429` without a `code` when the AI quota is used up, `502`, `503`).
+
+### AI Assistant conversations (not yet implemented)
 
 | Method | Path | Requirement | Auth Required |
 | --- | --- | --- | --- |
@@ -386,11 +394,12 @@ Sprint 18B.5 built) before any response is ever sent.
 | POST | `/api/v1/ai/conversations/:id/messages` | FR-AI-01, FR-AI-02 | Yes |
 | POST | `/api/v1/ai/conversations/:id/apply-suggestion` | FR-AI-04 | Yes |
 
-These conversational routes remain undelivered — no `ai_conversations`/
+These persistent conversation routes remain undelivered — no `ai_conversations`/
 `ai_messages` persistence exists yet (Sprint 18A and 18B both explicitly
 excluded it; see `backend/src/modules/README.md`), the same "documented as
 a real gap, not silently dropped" treatment this document already gives
-`task-lists` above.
+`task-lists` above. The stateless `POST /ai/chat` above covers chat until
+conversation history is built after the presentation.
 
 All resource paths use plural, lowercase, kebab-case nouns (`task-lists`, `ai-suggestions`) and nest child resources under their parent (`/travel/trips/:id/itinerary`) only where the child is never accessed independently of the parent, per [14-database-design.md](14-database-design.md#entities) — this mirrors which entities do and do not have their own soft-delete/lifecycle. `ItineraryItem`'s `PATCH`/`DELETE` are the one deliberate exception (top-level `/travel/itinerary/:id`, not nested) — see the Trips (Travel) section above.
 
@@ -604,6 +613,8 @@ All error responses use a consistent envelope:
 
 `error` is NestJS's `HttpStatus` enum reverse-mapping (`HttpStatus[statusCode]`), so it's always UPPER_SNAKE_CASE (`BAD_REQUEST`, `NOT_FOUND`, `UNAUTHORIZED`, `CONFLICT`, ...) — see `AllExceptionsFilter`, `src/common/filters/all-exceptions.filter.ts`.
 
+Some errors add an optional, machine-readable `code` so a client can tell two errors with the same status apart. It is present only when the error sets one; today that is `CHAT_DAILY_LIMIT_REACHED` (`429` from `POST /ai/chat` when the user's daily chat messages are used up, as opposed to a `429` from the AI provider's quota, which has no `code`).
+
 | Status Code | Meaning | Example |
 | --- | --- | --- |
 | 400 | Validation failure | Missing required field, or an unsupported `sort`/filter value. |
@@ -611,7 +622,7 @@ All error responses use a consistent envelope:
 | 403 | Authenticated but not authorized | The account's role does not permit the action, e.g. a regular user calling an `/admin/*` route (see [Roles](#roles)). Distinct from ownership — see [Authorization](#authorization), which uses 404. |
 | 404 | Resource not found | Trip ID does not exist or belongs to another user. |
 | 409 | Conflict | Registering with an email that already exists. |
-| 429 | Rate limit exceeded | Too many requests from one client IP, e.g. more than 10 sign-in attempts in a minute; see [Rate Limiting](#rate-limiting). |
+| 429 | Rate limit exceeded | Too many requests from one client IP, e.g. more than 10 sign-in attempts in a minute (see [Rate Limiting](#rate-limiting)); the AI provider's quota used up; or the user's daily chat messages used up (`code: "CHAT_DAILY_LIMIT_REACHED"`). |
 | 502 / 504 | Upstream AI provider failure | Gemini API timeout or error, surfaced per [12-project-architecture.md](12-project-architecture.md#error-handling). |
 
 ## Versioning
