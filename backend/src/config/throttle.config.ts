@@ -27,4 +27,6 @@ export const throttleLimits = {
   login: limitFromEnv('THROTTLE_LOGIN_LIMIT', 10),
   register: limitFromEnv('THROTTLE_REGISTER_LIMIT', 10),
   refresh: limitFromEnv('THROTTLE_REFRESH_LIMIT', 30),
+  // DELETE /users/me checks a password, so it gets a tight limit against guessing.
+  accountDeletion: limitFromEnv('THROTTLE_ACCOUNT_DELETION_LIMIT', 5),
 };

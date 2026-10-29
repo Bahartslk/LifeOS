@@ -124,6 +124,7 @@ export interface HttpTestApp {
     get(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     post(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     patch(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
+    delete(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     options(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
   };
   prisma: ReturnType<typeof createPrismaStub>;
@@ -194,6 +195,7 @@ export async function createHttpTestApp(
       get: (path, options) => send('GET', path, options),
       post: (path, options) => send('POST', path, options),
       patch: (path, options) => send('PATCH', path, options),
+      delete: (path, options) => send('DELETE', path, options),
       options: (path, options) => send('OPTIONS', path, options),
     },
     prisma,

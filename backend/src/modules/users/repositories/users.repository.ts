@@ -53,6 +53,16 @@ export class UsersRepository {
     return this.prisma.user.create({ data });
   }
 
+  /**
+   * Hard-deletes the user row. Every table that belongs to a user references
+   * it with `ON DELETE CASCADE` (refresh tokens, task lists, tasks, trips and
+   * through them itinerary items, AI chat usage), so the database removes all
+   * of the user's data in the same statement.
+   */
+  async deleteById(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
   async update(id: string, data: UpdateUserData): Promise<User | null> {
     const result = await this.prisma.user.updateMany({
       where: { id, deletedAt: null },
