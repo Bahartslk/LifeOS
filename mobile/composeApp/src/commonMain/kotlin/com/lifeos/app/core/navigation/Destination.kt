@@ -77,8 +77,14 @@ sealed interface Destination {
         override val route: String = "planner/calendar"
     }
 
+    /** The AI Assistant tab (Daily Brief and task context); the route name predates the chat screen. */
     data object AiChat : Destination {
         override val route: String = "ai/chat"
+    }
+
+    /** The chat screen with the assistant (`POST /ai/chat`), opened from the AI Assistant tab and Home. */
+    data object AiConversation : Destination {
+        override val route: String = "ai/conversation"
     }
     data object Profile : Destination {
         override val route: String = "profile/overview"

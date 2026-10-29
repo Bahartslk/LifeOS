@@ -4,8 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -18,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lifeos.app.core.designsystem.components.AppOutlinedButton
+import com.lifeos.app.core.designsystem.components.AppPrimaryButton
 import com.lifeos.app.core.designsystem.components.AppSnackbarHost
 import com.lifeos.app.core.designsystem.components.ErrorView
 import com.lifeos.app.core.designsystem.components.SkeletonListContent
@@ -27,6 +31,7 @@ import com.lifeos.app.core.presentation.CollectActions
 import com.lifeos.app.features.ai.domain.model.AiTaskContext
 import com.lifeos.app.features.ai.domain.model.AiTaskProgress
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
+import com.lifeos.app.features.ai.presentation.chat.AiChatStrings
 import com.lifeos.app.features.ai.presentation.sections.AiAssistantHeader
 import com.lifeos.app.features.ai.presentation.sections.AiDailyBriefSection
 import com.lifeos.app.features.ai.presentation.sections.AiProgressSummarySection
@@ -48,6 +53,7 @@ import org.koin.compose.viewmodel.koinViewModel
 fun AiAssistantRoute(
     onNavigateToTaskDetail: (String) -> Unit,
     onNavigateToCreateTask: () -> Unit,
+    onNavigateToChat: () -> Unit,
     viewModel: AiAssistantViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -76,6 +82,7 @@ fun AiAssistantRoute(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onEvent = viewModel::onEvent,
+        onChatClick = onNavigateToChat,
     )
 }
 
@@ -85,6 +92,7 @@ private fun AiAssistantScreen(
     uiState: AiAssistantUiState,
     snackbarHostState: SnackbarHostState,
     onEvent: (AiAssistantEvent) -> Unit,
+    onChatClick: () -> Unit = {},
 ) {
     Scaffold(
         snackbarHost = { AppSnackbarHost(snackbarHostState) },
@@ -103,6 +111,7 @@ private fun AiAssistantScreen(
                 context = uiState.context,
                 dailyBrief = uiState.dailyBrief,
                 onEvent = onEvent,
+                onChatClick = onChatClick,
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
             )
         }
@@ -114,6 +123,7 @@ private fun AiAssistantContent(
     context: AiTaskContext,
     dailyBrief: DailyBriefUiState,
     onEvent: (AiAssistantEvent) -> Unit,
+    onChatClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -129,6 +139,12 @@ private fun AiAssistantContent(
                 modifier = Modifier.padding(horizontal = LifeOSSpacing.lg),
                 verticalArrangement = Arrangement.spacedBy(LifeOSSpacing.lg),
             ) {
+                AppPrimaryButton(
+                    text = AiChatStrings.ENTRY_ACTION,
+                    onClick = onChatClick,
+                    trailingIcon = Icons.AutoMirrored.Filled.Chat,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 AiDailyBriefSection(
                     state = dailyBrief,
                     onRefreshClick = { onEvent(AiAssistantEvent.DailyBriefRefreshClicked) },

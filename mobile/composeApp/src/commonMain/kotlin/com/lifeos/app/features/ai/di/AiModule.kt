@@ -1,6 +1,11 @@
 package com.lifeos.app.features.ai.di
 
+import com.lifeos.app.features.ai.data.remote.ChatRemoteDataSource
 import com.lifeos.app.features.ai.data.remote.DailyBriefRemoteDataSource
+import com.lifeos.app.features.ai.data.repository.ChatRepositoryImpl
+import com.lifeos.app.features.ai.domain.repository.ChatRepository
+import com.lifeos.app.features.ai.domain.usecase.SendChatMessageUseCase
+import com.lifeos.app.features.ai.presentation.chat.AiChatViewModel
 import com.lifeos.app.features.ai.data.repository.DailyBriefRepositoryImpl
 import com.lifeos.app.features.ai.domain.repository.DailyBriefRepository
 import com.lifeos.app.features.ai.domain.usecase.AddReminderToAgendaUseCase
@@ -28,6 +33,12 @@ val aiModule: Module = module {
     factory { GetDailyBriefUseCase(dailyBriefRepository = get()) }
     factory { BuildAiTaskContextUseCase() }
     factory { AddReminderToAgendaUseCase(createTask = get()) }
+
+    // Chat: stateless on the server, so nothing here needs to outlive the screen.
+    single { ChatRemoteDataSource(httpClient = get<HttpClient>()) }
+    single<ChatRepository> { ChatRepositoryImpl(remoteDataSource = get()) }
+    factory { SendChatMessageUseCase(chatRepository = get()) }
+    viewModel { AiChatViewModel(sendChatMessage = get()) }
     viewModel {
         AiAssistantViewModel(
             getPlannerDashboard = get(),

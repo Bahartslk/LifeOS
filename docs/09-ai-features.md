@@ -85,6 +85,15 @@ A short, **stateless** chat with the assistant: `POST /api/v1/ai/chat` with `{ m
 - **Daily limit:** each user may send `AI_CHAT_DAILY_LIMIT` messages a day (default 5), counted in the user's own time zone (`users.timezone`, default `Europe/Istanbul`), so the limit resets at the user's midnight. The count lives in `ai_chat_usage` (one row per user per day, no message content) and is reserved with a single atomic upsert before the AI call, so concurrent messages can't exceed the limit; if the AI call fails, the message is given back. When the limit is used up the endpoint answers `429` with `code: "CHAT_DAILY_LIMIT_REACHED"`; a `429` without that code means the AI provider's own quota is used up.
 - Uses the same Gemini model chain as every other capability (see [12-project-architecture.md](12-project-architecture.md#ai-service-boundaries)).
 
+**On mobile** the chat is a separate "Sohbet" screen (`features/ai/presentation/chat`), opened from the AI Assistant tab ("Asistanla sohbet et") and from Home's "AI Asistanına Sor" quick action.
+
+- User and assistant messages appear as bubbles. The input has a 500-character limit with a counter; "Asistan yazıyor…" shows while a reply is on its way.
+- The empty screen offers three example questions; tapping one sends it.
+- The conversation lives only in `AiChatViewModel`, for as long as the screen is open. `SendChatMessageUseCase` sends the last 8 successful turns with each message.
+- After the first reply the screen shows "Bugün N mesaj hakkın kaldı". When none are left (the reply's `remainingMessages` is 0, or the backend answers `CHAT_DAILY_LIMIT_REACHED`), the input is replaced by "Bugünlük mesaj hakkın doldu, yarın görüşürüz."
+- A failed message stays in the list marked "Gönderilemedi", with the reason and a "Tekrar dene" button. A `429` without a code (the AI provider's quota) shows "Bugünlük yapay zeka hakkın doldu, yarın tekrar dene." and keeps the input open.
+- Colors come from the theme (dark mode). Screen readers hear who wrote each bubble ("Sen: …", "Asistan: …"); the send button, counter and example questions have their own descriptions, and errors and the typing note are announced.
+
 ## Data Requirements
 
 - The AI module reads only the requesting user's own trips, itinerary items, and tasks — no cross-user data is ever included in a prompt.
