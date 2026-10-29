@@ -1,5 +1,7 @@
 package com.lifeos.app.core.navigation
 
+import io.ktor.http.encodeURLParameter
+
 /**
  * Route contracts for the app's navigation graph, matching the canonical
  * screen names in docs/05-screen-inventory.md. Declaring routes centrally
@@ -27,6 +29,14 @@ sealed interface Destination {
     }
     data object ForgotPassword : Destination {
         override val route: String = "auth/forgot-password"
+    }
+
+    /** Enter the emailed code and a new password; the address travels as a query argument. */
+    data object ResetPassword : Destination {
+        const val ARG_EMAIL = "email"
+        override val route: String = "auth/reset-password?$ARG_EMAIL={$ARG_EMAIL}"
+
+        fun createRoute(email: String): String = "auth/reset-password?$ARG_EMAIL=${email.encodeURLParameter()}"
     }
 
     // Bottom navigation — docs/05-screen-inventory.md#navigation-map

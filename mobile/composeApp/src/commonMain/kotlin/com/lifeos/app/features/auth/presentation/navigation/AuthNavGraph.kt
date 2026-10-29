@@ -2,6 +2,8 @@ package com.lifeos.app.features.auth.presentation.navigation
 
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import androidx.navigation.compose.composable
 import com.lifeos.app.core.navigation.Destination
@@ -9,6 +11,7 @@ import com.lifeos.app.features.auth.presentation.forgotpassword.ForgotPasswordRo
 import com.lifeos.app.features.auth.presentation.login.LoginRoute
 import com.lifeos.app.features.auth.presentation.onboarding.OnboardingRoute
 import com.lifeos.app.features.auth.presentation.register.RegisterRoute
+import com.lifeos.app.features.auth.presentation.resetpassword.ResetPasswordRoute
 import com.lifeos.app.features.auth.presentation.splash.SplashRoute
 
 /** The nested graph route Authentication lives under — see [authGraph]. */
@@ -16,7 +19,7 @@ const val AUTH_GRAPH_ROUTE = "auth-graph"
 
 /**
  * The complete Authentication navigation graph: Splash, Onboarding, Login,
- * Register, Forgot Password. Registered as a single nested graph in
+ * Register, Forgot Password, Reset Password. Registered as a single nested graph in
  * [com.lifeos.app.core.navigation.LifeOSNavHost] so Authentication stays
  * isolated from the future Home/Travel/Planner/AI Assistant/Profile graph —
  * this function is the *only* thing the app shell needs to know about to
@@ -60,6 +63,30 @@ fun NavGraphBuilder.authGraph(navController: NavController) {
         composable(Destination.ForgotPassword.route) {
             ForgotPasswordRoute(
                 onNavigateToLogin = { navController.popBackStack() },
+                onNavigateToResetPassword = { email ->
+                    navController.navigate(Destination.ResetPassword.createRoute(email))
+                },
+            )
+        }
+
+        composable(
+            route = Destination.ResetPassword.route,
+            arguments = listOf(
+                navArgument(Destination.ResetPassword.ARG_EMAIL) {
+                    type = NavType.StringType
+                    defaultValue = ""
+                },
+            ),
+        ) { backStackEntry ->
+            ResetPasswordRoute(
+                email = backStackEntry.arguments?.getString(Destination.ResetPassword.ARG_EMAIL).orEmpty(),
+                // A fresh sign-in entry (its ViewModel reads the "password reset" notice when created),
+                // replacing the old one and both reset screens.
+                onPasswordReset = {
+                    navController.navigate(Destination.SignIn.route) {
+                        popUpTo(Destination.SignIn.route) { inclusive = true }
+                    }
+                },
             )
         }
     }

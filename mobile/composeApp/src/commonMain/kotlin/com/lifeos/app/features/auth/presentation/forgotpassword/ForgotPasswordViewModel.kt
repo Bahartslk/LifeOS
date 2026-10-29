@@ -2,6 +2,7 @@ package com.lifeos.app.features.auth.presentation.forgotpassword
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lifeos.app.features.auth.domain.model.PasswordResetRateLimitedException
 import com.lifeos.app.features.auth.domain.usecase.RequestPasswordResetUseCase
 import com.lifeos.app.features.auth.domain.validation.EmailValidator
 import com.lifeos.app.features.auth.domain.validation.errorMessage
@@ -11,8 +12,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Asks the backend to email a reset code. The backend answers the same way
+ * whether or not the address has an account, so a success always moves on
+ * to the code screen.
+ */
 class ForgotPasswordViewModel(
     private val requestPasswordReset: RequestPasswordResetUseCase,
 ) : ViewModel() {
@@ -25,8 +32,8 @@ class ForgotPasswordViewModel(
 
     fun onEvent(event: ForgotPasswordEvent) {
         when (event) {
-            is ForgotPasswordEvent.EmailChanged -> {
-                _uiState.value = _uiState.value.copy(email = event.value, emailError = null)
+            is ForgotPasswordEvent.EmailChanged -> _uiState.update {
+                it.copy(email = event.value, emailError = null, errorMessage = null)
             }
             ForgotPasswordEvent.SubmitClicked -> submit()
             ForgotPasswordEvent.BackToLoginClicked -> {
@@ -37,25 +44,29 @@ class ForgotPasswordViewModel(
 
     private fun submit() {
         val state = _uiState.value
-        val emailError = EmailValidator.validate(state.email).errorMessage(AuthStrings::emailError)
-
+        if (state.isLoading) return
+        // Trimmed first: keyboards often add a trailing space after an address.
+        val email = state.email.trim()
+        val emailError = EmailValidator.validate(email).errorMessage(AuthStrings::emailError)
         if (emailError != null) {
             _uiState.value = state.copy(emailError = emailError)
             return
         }
 
+        _uiState.value = state.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            _uiState.value = state.copy(isLoading = true)
-            requestPasswordReset(state.email)
+            requestPasswordReset(email)
                 .onSuccess {
-                    _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+                    _uiState.update { it.copy(isLoading = false) }
+                    _actions.send(ForgotPasswordAction.NavigateToResetPassword(email))
                 }
-                .onFailure {
-                    // requestPasswordReset never fails today — FR-AUTH-04's
-                    // backend endpoints don't exist yet, so AuthRepositoryImpl
-                    // still stubs this call (see its own KDoc); this branch is
-                    // wired for once that real backend work ships.
-                    _uiState.value = _uiState.value.copy(isLoading = false)
+                .onFailure { error ->
+                    val message = if (error is PasswordResetRateLimitedException) {
+                        AuthStrings.PASSWORD_RESET_TOO_MANY_ATTEMPTS
+                    } else {
+                        AuthStrings.FORGOT_PASSWORD_ERROR
+                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = message) }
                 }
         }
     }

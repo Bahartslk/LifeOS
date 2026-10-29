@@ -145,11 +145,12 @@ erDiagram
 | `tasks` | Planner | Yes | Soft delete keeps completed/removed tasks available for the AI Assistant's context and for undo (FR-PLANNER-05). |
 | `ai_conversations` | AI Assistant | No | Retained for AI Conversation History (FR-AI-03). |
 | `ai_messages` | AI Assistant | No | Child of `ai_conversations`. Carries `token_count` for AI usage/cost observability, per [12-project-architecture.md](12-project-architecture.md#rate-limiting). |
+| `password_reset_codes` | Authentication | No (closed, not deleted) | **Implemented.** One-time 6-digit password reset codes (`user_id`, `code_hash` (bcrypt, never the code), `expires_at`, `attempts`, `used_at`), see [15-api-design.md](15-api-design.md#password-reset). A code is usable while `used_at` is null, it hasn't expired and `attempts` is under the limit; a new request or a successful reset sets `used_at` on the user's open codes. Indexed on `user_id`. |
 | `ai_chat_usage` | AI Assistant | No | **Implemented.** One row per user per day (`user_id`, `usage_date` as a `DATE` in the user's own time zone, `message_count`) for the AI chat daily limit, see [09-ai-features.md](09-ai-features.md#ai-chat). Unique `(user_id, usage_date)`; incremented with a single atomic upsert. Stores no message content. |
 
 ## Relationships
 
-- A `user` has many `trips`, `task_lists`, `tasks`, `refresh_tokens`, `ai_chat_usage` rows (one per day), and `ai_conversations`.
+- A `user` has many `trips`, `task_lists`, `tasks`, `refresh_tokens`, `password_reset_codes`, `ai_chat_usage` rows (one per day), and `ai_conversations`.
 - A `trip` has many `itinerary_items`; soft-deleting a trip does not delete its itinerary items, so a restored trip retains its itinerary.
 - A `task_list` has many `tasks`. `tasks.task_list_id` is nullable — a task may exist without belonging to any list (FR-PLANNER-01), and deleting a list detaches rather than deletes its tasks.
 - An `ai_conversation` has many `ai_messages`, ordered by `created_at`.
@@ -166,6 +167,7 @@ Every foreign key has an explicit `ON DELETE` behavior — none are left to the 
 | `task_lists.user_id` | `users.id` | `CASCADE` | Same ownership model as trips. |
 | `tasks.user_id` | `users.id` | `CASCADE` | Same ownership model as trips. |
 | `ai_conversations.user_id` | `users.id` | `CASCADE` | Conversations have no meaning detached from their owning user. |
+| `password_reset_codes.user_id` | `users.id` | `CASCADE` | A reset code has no meaning without its user; removed together with the account. |
 | `ai_chat_usage.user_id` | `users.id` | `CASCADE` | A usage count has no meaning without its user; removed together with the account (account deletion). |
 | `itinerary_items.trip_id` | `trips.id` | `CASCADE` | Itinerary items are never accessed independently of a trip (per [05-screen-inventory.md](05-screen-inventory.md#travel)); a hard-purged trip should not leave orphaned items. |
 | `tasks.task_list_id` | `task_lists.id` | `SET NULL` | A task is a first-class record independent of its list (FR-PLANNER-01); deleting a list must not destroy its tasks. |
@@ -174,7 +176,7 @@ Every foreign key has an explicit `ON DELETE` behavior — none are left to the 
 
 `CASCADE` here applies to **hard deletes only**. Routine user-facing deletion of `trips`, `task_lists`, and `tasks` is a soft delete (`deleted_at` set), which does not trigger any `ON DELETE` behavior at all — cascades only activate for genuine row removal.
 
-**Account deletion is a hard delete.** `DELETE /api/v1/users/me` (see [15-api-design.md](15-api-design.md#users--profile)) removes the `users` row, and the cascades above remove every row the user owns in the same statement: `refresh_tokens`, `task_lists`, `tasks`, `trips` (and through them `itinerary_items`) and `ai_chat_usage`. Nothing is kept: the app stores and KVKK/GDPR expect the data to be gone, and a soft-deleted user would also block re-registering the same email, since the case-insensitive email index is not partial. No code path sets `users.deleted_at`, so the admin panel's deleted-user counts stay at zero.
+**Account deletion is a hard delete.** `DELETE /api/v1/users/me` (see [15-api-design.md](15-api-design.md#users--profile)) removes the `users` row, and the cascades above remove every row the user owns in the same statement: `refresh_tokens`, `password_reset_codes`, `task_lists`, `tasks`, `trips` (and through them `itinerary_items`) and `ai_chat_usage`. Nothing is kept: the app stores and KVKK/GDPR expect the data to be gone, and a soft-deleted user would also block re-registering the same email, since the case-insensitive email index is not partial. No code path sets `users.deleted_at`, so the admin panel's deleted-user counts stay at zero.
 
 ## Schema
 

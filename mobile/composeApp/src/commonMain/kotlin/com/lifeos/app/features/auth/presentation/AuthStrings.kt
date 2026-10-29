@@ -76,11 +76,27 @@ internal object AuthStrings {
 
     // Forgot Password
     const val FORGOT_PASSWORD_TITLE = "Şifrenizi mi unuttunuz?"
-    const val FORGOT_PASSWORD_SUBTITLE = "E-posta adresinizi girin, size bir sıfırlama bağlantısı gönderelim."
-    const val FORGOT_PASSWORD_SUBMIT = "Sıfırlama Bağlantısı Gönder"
-    const val FORGOT_PASSWORD_SUCCESS_TITLE = "E-posta Gönderildi"
-    const val FORGOT_PASSWORD_SUCCESS_DESCRIPTION = "Şifrenizi sıfırlamak için e-postanızı kontrol edin."
+    const val FORGOT_PASSWORD_SUBTITLE = "E-posta adresinizi girin, size 6 haneli bir sıfırlama kodu gönderelim."
+    const val FORGOT_PASSWORD_SUBMIT = "Kod Gönder"
     const val FORGOT_PASSWORD_BACK_TO_LOGIN = "Girişe Dön"
+    const val PASSWORD_RESET_TOO_MANY_ATTEMPTS = "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin."
+    const val FORGOT_PASSWORD_ERROR = "Kod gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin."
+
+    // Reset Password
+    const val RESET_PASSWORD_TITLE = "Yeni şifre belirleyin"
+    fun resetPasswordSubtitle(email: String) =
+        "$email adresine bir kayıt varsa 6 haneli bir kod gönderdik. Kodu ve yeni şifrenizi girin."
+    const val RESET_PASSWORD_CODE_LABEL = "Doğrulama kodu"
+    const val RESET_PASSWORD_CODE_PLACEHOLDER = "6 haneli kod"
+    const val RESET_PASSWORD_NEW_PASSWORD_LABEL = "Yeni şifre"
+    const val RESET_PASSWORD_CONFIRM_LABEL = "Yeni şifre tekrar"
+    const val RESET_PASSWORD_SUBMIT = "Şifreyi Yenile"
+    const val RESET_PASSWORD_RESEND = "Kodu tekrar gönder"
+    const val RESET_PASSWORD_RESENT = "Yeni bir kod gönderildi. E-postanızı kontrol edin."
+    const val RESET_PASSWORD_CODE_INVALID_FORMAT = "6 haneli kodu girin."
+    const val RESET_PASSWORD_CODE_WRONG = "Kod hatalı veya süresi dolmuş. Yeni bir kod isteyebilirsiniz."
+    const val RESET_PASSWORD_ERROR = "Şifre yenilenemedi. Bağlantınızı kontrol edip tekrar deneyin."
+    const val PASSWORD_RESET_MESSAGE = "Şifreniz yenilendi. Yeni şifrenizle giriş yapın."
 
     // Field validation errors, mapped from the domain's ValidationError
     fun emailError(error: ValidationError): String = when (error) {
@@ -92,6 +108,7 @@ internal object AuthStrings {
     fun passwordError(error: ValidationError): String = when (error) {
         ValidationError.EMPTY -> "Şifre gerekli."
         ValidationError.PASSWORD_TOO_SHORT -> "Şifre en az 8 karakter olmalı."
+        ValidationError.PASSWORD_TOO_LONG -> "Şifre en fazla 72 karakter olabilir."
         else -> GENERIC_FIELD_ERROR
     }
 

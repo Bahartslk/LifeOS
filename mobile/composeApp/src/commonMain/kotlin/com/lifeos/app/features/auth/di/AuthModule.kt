@@ -22,6 +22,8 @@ import com.lifeos.app.features.auth.domain.usecase.LogoutUseCase
 import com.lifeos.app.features.auth.domain.usecase.ObserveOnboardingCompletedUseCase
 import com.lifeos.app.features.auth.domain.usecase.RegisterUseCase
 import com.lifeos.app.features.auth.domain.usecase.RequestPasswordResetUseCase
+import com.lifeos.app.features.auth.domain.usecase.ResetPasswordUseCase
+import com.lifeos.app.features.auth.presentation.resetpassword.ResetPasswordViewModel
 import com.lifeos.app.features.auth.presentation.forgotpassword.ForgotPasswordViewModel
 import com.lifeos.app.features.auth.presentation.login.LoginViewModel
 import com.lifeos.app.features.auth.presentation.onboarding.OnboardingViewModel
@@ -77,6 +79,7 @@ val authModule: Module = module {
     factory { LoginUseCase(authRepository = get()) }
     factory { RegisterUseCase(authRepository = get()) }
     factory { RequestPasswordResetUseCase(authRepository = get()) }
+    factory { ResetPasswordUseCase(authRepository = get(), sessionExpiryRepository = get()) }
     factory { GetSessionUseCase(authRepository = get()) }
     factory { LogoutUseCase(authRepository = get()) }
     factory { ObserveOnboardingCompletedUseCase(onboardingRepository = get()) }
@@ -91,4 +94,7 @@ val authModule: Module = module {
     viewModel { SessionGuardViewModel(observeSessionExpired = get()) }
     viewModel { RegisterViewModel(register = get()) }
     viewModel { ForgotPasswordViewModel(requestPasswordReset = get()) }
+    viewModel { (email: String) ->
+        ResetPasswordViewModel(email = email, resetPassword = get(), requestPasswordReset = get())
+    }
 }

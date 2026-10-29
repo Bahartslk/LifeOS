@@ -19,8 +19,8 @@ import kotlinx.coroutines.launch
 
 /**
  * When the user lands here because their session expired (the backend
- * rejected the refresh token) or because they deleted their account, the
- * screen says so once instead of silently showing the sign-in form.
+ * rejected the refresh token), deleted their account or reset their password,
+ * the screen says so once instead of silently showing the sign-in form.
  */
 class LoginViewModel(
     private val login: LoginUseCase,
@@ -37,6 +37,7 @@ class LoginViewModel(
         when (consumeSignInNotice()) {
             SignInNotice.SESSION_EXPIRED -> sendAction(LoginAction.ShowMessage(AuthStrings.SESSION_EXPIRED_MESSAGE))
             SignInNotice.ACCOUNT_DELETED -> sendAction(LoginAction.ShowMessage(AuthStrings.ACCOUNT_DELETED_MESSAGE))
+            SignInNotice.PASSWORD_RESET -> sendAction(LoginAction.ShowMessage(AuthStrings.PASSWORD_RESET_MESSAGE))
             null -> Unit
         }
     }

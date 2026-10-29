@@ -33,7 +33,7 @@ This document catalogues every screen in LifeOS, grouped by module, and defines 
 | Sign In | Email/password sign-in. |
 | Sign Up | New account creation. |
 | Forgot Password | Initiates a password reset request. |
-| Reset Password | Sets a new password from a reset link/code. |
+| Reset Password | Sets a new password with the 6-digit code emailed from Forgot Password (built; see [15-api-design.md](15-api-design.md#password-reset)). |
 
 ### Home Dashboard
 

@@ -117,6 +117,7 @@ model User {
   tasks                   Task[]
   trips                   Trip[]
   aiChatUsage             AiChatUsage[]
+  passwordResetCodes      PasswordResetCode[]
 
   @@map("users")
 }
@@ -140,6 +141,26 @@ model AiChatUsage {
   // Also serves the (user, day) lookup; no separate index needed.
   @@unique([userId, usageDate])
   @@map("ai_chat_usage")
+}
+
+/// A one-time 6-digit code for resetting a forgotten password
+/// (docs/15-api-design.md#password-reset). Only a bcrypt hash of the code is
+/// stored. A code is usable while `usedAt` is null, `expiresAt` is in the
+/// future and `attempts` is below the limit; asking for a new code or a
+/// successful reset sets `usedAt` on every open code of the user. Deleted
+/// with the user.
+model PasswordResetCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  attempts  Int       @default(0)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_codes")
 }
 
 /// Role-based access control (docs/15-api-design.md#authorization). `USER`

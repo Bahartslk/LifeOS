@@ -20,6 +20,7 @@ enum class ValidationError {
     EMPTY,
     INVALID_EMAIL_FORMAT,
     PASSWORD_TOO_SHORT,
+    PASSWORD_TOO_LONG,
     PASSWORDS_DO_NOT_MATCH,
     NAME_TOO_SHORT,
 }
