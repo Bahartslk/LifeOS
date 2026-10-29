@@ -105,7 +105,8 @@ export const OPPORTUNITY_DETECTION: AiCapabilityDefinition<OpportunityDetectionR
   maxTokens: 600,
 };
 
-const REMINDER_RECOMMENDATION_SCHEMA = z.object({
+/** Also used by the Daily Brief overview (`daily-brief.capabilities.ts`), so both describe a reminder the same way. */
+export const REMINDER_RECOMMENDATION_SCHEMA = z.object({
   title: z.string().min(1).max(200),
   reason: z.string().min(1),
   relatedTo: z.nativeEnum(ReminderRelatedTo),
