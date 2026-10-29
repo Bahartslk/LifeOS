@@ -18,7 +18,6 @@ internal object ProfileStrings {
     const val SECURITY_ACTION = "Güvenlik"
     const val SECURITY_COMING_SOON = "Güvenlik ayarları yakında kullanıma sunulacak."
     const val CHANGE_PASSWORD_ACTION = "Şifre Değiştir"
-    const val CHANGE_PASSWORD_COMING_SOON = "Şifre değiştirme özelliği yakında kullanıma sunulacak."
 
     // Preferences
     const val PREFERENCES_TITLE = "Tercihler"
@@ -71,6 +70,27 @@ internal object ProfileStrings {
     const val EDIT_NAME_TOO_LONG_ERROR = "Ad soyad en fazla 100 karakter olabilir."
     const val EDIT_NAME_ERROR = "Ad güncellenemedi. Bağlantını kontrol edip tekrar dene."
     const val EDIT_NAME_SUCCESS = "Adın güncellendi."
+
+    // Change password screen
+    const val CHANGE_PASSWORD_TITLE = "Şifre Değiştir"
+    const val CHANGE_PASSWORD_BACK = "Geri"
+    const val CHANGE_PASSWORD_INFO =
+        "Şifren değişince diğer cihazlardaki oturumların kapatılır; bu cihazda oturumun açık kalır."
+    const val CURRENT_PASSWORD_LABEL = "Mevcut şifre"
+    const val NEW_PASSWORD_LABEL = "Yeni şifre"
+    const val CONFIRM_NEW_PASSWORD_LABEL = "Yeni şifre tekrar"
+    const val CHANGE_PASSWORD_SUBMIT = "Şifreyi Değiştir"
+    const val CHANGE_PASSWORD_IN_PROGRESS = "Değiştiriliyor..."
+    const val CURRENT_PASSWORD_REQUIRED = "Mevcut şifre gerekli."
+    const val CURRENT_PASSWORD_WRONG = "Mevcut şifre yanlış."
+    const val NEW_PASSWORD_REQUIRED = "Yeni şifre gerekli."
+    const val NEW_PASSWORD_TOO_SHORT = "Şifre en az 8 karakter olmalı."
+    const val NEW_PASSWORD_SAME_AS_CURRENT = "Yeni şifre mevcut şifreden farklı olmalı."
+    const val CONFIRM_PASSWORD_REQUIRED = "Şifre tekrarı gerekli."
+    const val PASSWORDS_DO_NOT_MATCH = "Şifreler eşleşmiyor."
+    const val CHANGE_PASSWORD_TOO_MANY_ATTEMPTS = "Çok fazla deneme, biraz sonra tekrar dene."
+    const val CHANGE_PASSWORD_ERROR = "Şifre değiştirilemedi. Bağlantını kontrol edip tekrar dene."
+    const val CHANGE_PASSWORD_SUCCESS = "Şifren değiştirildi. Diğer cihazlardaki oturumların kapatıldı."
 
     // Delete account
     const val DELETE_ACCOUNT_ACTION = "Hesabı Sil"

@@ -34,3 +34,16 @@ data class DeleteAccountRequestDto(val password: String)
 
 @Serializable
 data class DeleteAccountResponseDto(val success: Boolean)
+
+@Serializable
+data class ChangePasswordRequestDto(
+    val currentPassword: String,
+    val newPassword: String,
+)
+
+/** `PATCH /users/me/password`'s response: the new session's tokens. */
+@Serializable
+data class SessionTokensDto(
+    val accessToken: String,
+    val refreshToken: String,
+)

@@ -8,9 +8,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import com.lifeos.app.core.designsystem.components.AppSnackbarHost
 import com.lifeos.app.core.designsystem.components.ConfirmationDialog
@@ -28,6 +30,7 @@ import com.lifeos.app.features.profile.presentation.sections.NotificationsSectio
 import com.lifeos.app.features.profile.presentation.sections.PreferencesSection
 import com.lifeos.app.features.profile.presentation.sections.ProfileHeader
 import com.lifeos.app.features.profile.presentation.sections.SessionSection
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -35,12 +38,16 @@ import org.koin.compose.viewmodel.koinViewModel
  * Stateful entry point wired into `core/navigation/MainNavGraph.kt` —
  * collects [ProfileViewModel] and forwards its one-shot [ProfileAction]s to
  * a snackbar, per the same Route/Screen split every other feature follows.
- * [onLoggedOut] runs after a logout or an account deletion; every other
- * action stays on this screen.
+ * [onLoggedOut] runs after a logout or an account deletion;
+ * [onNavigateToChangePassword] opens the Change Password screen, which sets
+ * [passwordChanged] when it closes after a success.
  */
 @Composable
 fun ProfileRoute(
     onLoggedOut: () -> Unit,
+    onNavigateToChangePassword: () -> Unit,
+    passwordChanged: Boolean = false,
+    onPasswordChangedShown: () -> Unit = {},
     viewModel: ProfileViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -50,6 +57,18 @@ fun ProfileRoute(
         when (action) {
             is ProfileAction.ShowMessage -> snackbarHostState.showSnackbar(action.message)
             ProfileAction.NavigateToLogin -> onLoggedOut()
+            ProfileAction.NavigateToChangePassword -> onNavigateToChangePassword()
+        }
+    }
+
+    // Set by the Change Password screen when it closes after a success. The
+    // flag is cleared at once so it shows only once; that clearing restarts
+    // this effect, so the snackbar runs in a scope the restart can't cancel.
+    val messageScope = rememberCoroutineScope()
+    LaunchedEffect(passwordChanged) {
+        if (passwordChanged) {
+            messageScope.launch { snackbarHostState.showSnackbar(ProfileStrings.CHANGE_PASSWORD_SUCCESS) }
+            onPasswordChangedShown()
         }
     }
 

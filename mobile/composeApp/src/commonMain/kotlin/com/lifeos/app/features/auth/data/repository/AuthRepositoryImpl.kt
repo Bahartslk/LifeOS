@@ -8,6 +8,7 @@ import com.lifeos.app.features.auth.domain.model.AuthSession
 import com.lifeos.app.features.auth.domain.model.AuthUser
 import com.lifeos.app.features.auth.domain.model.EmailAlreadyRegisteredException
 import com.lifeos.app.features.auth.domain.model.InvalidCredentialsException
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.auth.domain.repository.AuthRepository
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.delay
@@ -116,6 +117,12 @@ class AuthRepositoryImpl(
 
     override suspend fun updateSessionDisplayName(fullName: String) {
         tokenLocalDataSource.updateFullName(fullName)
+    }
+
+    /** Like [startSession]: the shared client must drop its cached token so the next request uses the new one. */
+    override suspend fun replaceSessionTokens(tokens: SessionTokens) {
+        tokenLocalDataSource.saveTokens(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
+        bearerTokenCache.clear()
     }
 
     /**

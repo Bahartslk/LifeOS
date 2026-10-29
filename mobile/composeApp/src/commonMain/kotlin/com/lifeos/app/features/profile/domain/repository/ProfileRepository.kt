@@ -1,6 +1,7 @@
 package com.lifeos.app.features.profile.domain.repository
 
 import com.lifeos.app.core.storage.ThemeMode
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.profile.domain.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 
@@ -31,4 +32,11 @@ interface ProfileRepository {
      * [com.lifeos.app.features.profile.domain.model.TooManyAttemptsException] when rate limited.
      */
     suspend fun deleteAccount(password: String)
+
+    /**
+     * Changes the password. The backend signs out every session and returns
+     * a new token pair for this one. A wrong current password (403) and rate
+     * limiting (429) throw the same exceptions as [deleteAccount].
+     */
+    suspend fun changePassword(currentPassword: String, newPassword: String): SessionTokens
 }

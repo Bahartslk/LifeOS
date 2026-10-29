@@ -89,4 +89,10 @@ sealed interface Destination {
     data object Profile : Destination {
         override val route: String = "profile/overview"
     }
+    data object ChangePassword : Destination {
+        override val route: String = "profile/change-password"
+
+        /** Set on Profile's back-stack entry when the password was changed, so Profile can confirm it. */
+        const val RESULT_PASSWORD_CHANGED = "password_changed"
+    }
 }

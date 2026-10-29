@@ -1,6 +1,7 @@
 package com.lifeos.app.features.auth.domain.repository
 
 import com.lifeos.app.features.auth.domain.model.AuthSession
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 
 /**
  * Abstracts session-issuing operations (login, register, password reset)
@@ -30,4 +31,7 @@ interface AuthRepository {
 
     /** Keeps the stored session's name in step after the user renames themselves. */
     suspend fun updateSessionDisplayName(fullName: String)
+
+    /** Swaps the stored session to a new token pair, keeping the signed-in user. */
+    suspend fun replaceSessionTokens(tokens: SessionTokens)
 }

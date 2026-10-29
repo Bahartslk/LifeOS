@@ -3,6 +3,8 @@ package com.lifeos.app.features.profile.data.repository
 import com.lifeos.app.core.network.ApiException
 import com.lifeos.app.core.storage.ThemeMode
 import com.lifeos.app.core.storage.ThemePreferenceStorage
+import com.lifeos.app.features.auth.domain.model.SessionTokens
+import com.lifeos.app.features.profile.data.dto.ChangePasswordRequestDto
 import com.lifeos.app.features.profile.data.dto.DeleteAccountRequestDto
 import com.lifeos.app.features.profile.data.dto.UpdateDisplayNameRequestDto
 import com.lifeos.app.features.profile.data.dto.UpdateThemePreferenceRequestDto
@@ -52,14 +54,26 @@ class ProfileRepositoryImpl(
     }
 
     override suspend fun deleteAccount(password: String) {
-        try {
-            remoteDataSource.deleteMe(DeleteAccountRequestDto(password = password))
-        } catch (e: ApiException) {
-            throw when (e.statusCode) {
-                HttpStatusCode.Forbidden.value -> IncorrectPasswordException()
-                HttpStatusCode.TooManyRequests.value -> TooManyAttemptsException()
-                else -> e
-            }
+        withPasswordCheckErrors { remoteDataSource.deleteMe(DeleteAccountRequestDto(password = password)) }
+    }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): SessionTokens {
+        val tokens = withPasswordCheckErrors {
+            remoteDataSource.changePassword(
+                ChangePasswordRequestDto(currentPassword = currentPassword, newPassword = newPassword),
+            )
+        }
+        return SessionTokens(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken)
+    }
+
+    /** Both password-confirmed routes answer a wrong password with 403 and rate limiting with 429. */
+    private suspend fun <T> withPasswordCheckErrors(call: suspend () -> T): T = try {
+        call()
+    } catch (e: ApiException) {
+        throw when (e.statusCode) {
+            HttpStatusCode.Forbidden.value -> IncorrectPasswordException()
+            HttpStatusCode.TooManyRequests.value -> TooManyAttemptsException()
+            else -> e
         }
     }
 
