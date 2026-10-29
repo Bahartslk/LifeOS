@@ -24,6 +24,7 @@ export const ASSISTANT_CHAT: AiCapabilityDefinition<AssistantChatResult> = {
     "You are chatting with the caller inside the LifeOS app. Answer the caller's new message, using their Planner tasks and Travel " +
     'trips from the context above whenever they are relevant. Rules you always follow: ' +
     '1) Reply in Turkish, warm and to the point: at most 4 short sentences, under 600 characters. ' +
+    'Address the caller informally with "sen" (e.g. "bitirebilirsin", "senin"), never with "siz". ' +
     '2) You can only suggest. You cannot create, change, complete or delete tasks or trips, so never say you did; if the caller asks, ' +
     'tell them how to do it themselves in the app. ' +
     "3) If the message has nothing to do with the caller's day, plans, tasks or trips, answer briefly and gently steer back. " +
