@@ -1,4 +1,4 @@
-import { dateInTimeZone, todayInTimeZone } from './date-time.util';
+import { dateInTimeZone, isIanaTimeZone, todayInTimeZone } from './date-time.util';
 
 describe('dateInTimeZone', () => {
   it('Europe/Istanbul is already the next day at 22:30 UTC (01:30 local)', () => {
@@ -47,5 +47,33 @@ describe('todayInTimeZone', () => {
 
     expect(todayInTimeZone('Europe/Istanbul')).toBe('2026-10-02');
     expect(todayInTimeZone('UTC')).toBe('2026-10-01');
+  });
+});
+
+describe('isIanaTimeZone', () => {
+  it.each([
+    'Europe/Istanbul',
+    'America/Argentina/Buenos_Aires',
+    'America/Indiana/Indianapolis',
+    'Etc/GMT-3',
+    'UTC',
+    'Etc/UTC',
+    'GMT',
+    'Asia/Calcutta',
+  ])('accepts %s', (value) => {
+    expect(isIanaTimeZone(value)).toBe(true);
+  });
+
+  it.each([
+    ['an unknown zone', 'Mars/Olympus_Mons'],
+    ['a UTC offset', '+03:00'],
+    ['a negative UTC offset', '-05:00'],
+    ['a GMT offset', 'GMT+03:00'],
+    ['an empty string', ''],
+    ['surrounding spaces', ' Europe/Istanbul '],
+    ['a non-string', 3],
+    ['null', null],
+  ])('rejects %s', (_label, value) => {
+    expect(isIanaTimeZone(value)).toBe(false);
   });
 });
