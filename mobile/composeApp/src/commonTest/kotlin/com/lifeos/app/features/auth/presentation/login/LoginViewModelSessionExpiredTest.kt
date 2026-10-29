@@ -2,6 +2,7 @@ package com.lifeos.app.features.auth.presentation.login
 
 import com.lifeos.app.features.auth.data.SessionExpiryRepositoryImpl
 import com.lifeos.app.features.auth.domain.model.AuthSession
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.auth.domain.repository.AuthRepository
 import com.lifeos.app.features.auth.domain.usecase.ConsumeSignInNoticeUseCase
 import com.lifeos.app.features.auth.domain.usecase.LoginUseCase
@@ -81,5 +82,6 @@ class LoginViewModelSessionExpiredTest {
         override suspend fun clearSession() = error("unused")
         override suspend fun clearLocalSession() = error("unused")
         override suspend fun updateSessionDisplayName(fullName: String) = error("unused")
+        override suspend fun replaceSessionTokens(tokens: SessionTokens) = error("unused")
     }
 }

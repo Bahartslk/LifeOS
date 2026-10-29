@@ -29,4 +29,6 @@ export const throttleLimits = {
   refresh: limitFromEnv('THROTTLE_REFRESH_LIMIT', 30),
   // DELETE /users/me checks a password, so it gets a tight limit against guessing.
   accountDeletion: limitFromEnv('THROTTLE_ACCOUNT_DELETION_LIMIT', 5),
+  // PATCH /users/me/password checks the current password, so the same reasoning applies.
+  passwordChange: limitFromEnv('THROTTLE_PASSWORD_CHANGE_LIMIT', 5),
 };

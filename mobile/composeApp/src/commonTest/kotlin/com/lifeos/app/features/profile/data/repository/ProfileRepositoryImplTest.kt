@@ -6,6 +6,7 @@ import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.core.storage.PreferencesStorage
 import com.lifeos.app.core.storage.ThemeMode
 import com.lifeos.app.core.storage.ThemePreferenceStorage
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.profile.data.remote.UsersRemoteDataSource
 import com.lifeos.app.features.profile.domain.model.IncorrectPasswordException
 import com.lifeos.app.features.profile.domain.model.TooManyAttemptsException
@@ -137,6 +138,40 @@ class ProfileRepositoryImplTest {
         respondWith = { respondJson(SERVER_ERROR, HttpStatusCode.InternalServerError) }
 
         assertFailsWith<ApiException> { repository.deleteAccount("any") }
+    }
+
+    @Test
+    fun changePassword_patchesBothPasswords_andReturnsTheNewTokens() = runTest {
+        respondWith = { respondJson("""{"data":{"accessToken":"new-access","refreshToken":"new-refresh"}}""") }
+
+        val tokens = repository.changePassword("old-password", "new-password")
+
+        assertEquals(SessionTokens(accessToken = "new-access", refreshToken = "new-refresh"), tokens)
+        val request = recordedRequests.single()
+        assertEquals(HttpMethod.Patch, request.method)
+        assertTrue(request.url.encodedPath.endsWith("api/v1/users/me/password"))
+        assertEquals("""{"currentPassword":"old-password","newPassword":"new-password"}""", request.bodyText())
+    }
+
+    @Test
+    fun changePassword_wrongCurrentPassword403_becomesIncorrectPasswordException() = runTest {
+        respondWith = {
+            respondJson(
+                """{"statusCode":403,"error":"FORBIDDEN","message":"Current password is incorrect."}""",
+                HttpStatusCode.Forbidden,
+            )
+        }
+
+        assertFailsWith<IncorrectPasswordException> { repository.changePassword("wrong", "new-password") }
+    }
+
+    @Test
+    fun changePassword_429_becomesTooManyAttemptsException() = runTest {
+        respondWith = {
+            respondJson("""{"statusCode":429,"error":"TOO_MANY_REQUESTS","message":"Too Many Requests"}""", HttpStatusCode.TooManyRequests)
+        }
+
+        assertFailsWith<TooManyAttemptsException> { repository.changePassword("any", "new-password") }
     }
 
     private fun HttpRequestData.bodyText(): String =

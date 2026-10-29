@@ -496,7 +496,8 @@ Suggested build order, since later modules depend on earlier ones:
    above).
 2. ~~`users`~~ — done (Sprint 17.0). Profile + preferences on top of
    Sprint 14.0's find/create. `PATCH /users/me/password` (FR-PROFILE-03)
-   and session management (FR-PROFILE-05) remain open — that sprint's
+   is done too, served by `AuthModule`'s `AccountPasswordController`.
+   Session management (FR-PROFILE-05) remains open — that sprint's
    explicit "Do NOT implement: Password reset" scope, and no session routes
    in its 3-route API list.
 3. ~~`planner`~~ — done (Sprint 15.0). Full task CRUD + dashboard; no

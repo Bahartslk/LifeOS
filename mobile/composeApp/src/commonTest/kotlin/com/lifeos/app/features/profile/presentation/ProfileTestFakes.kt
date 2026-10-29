@@ -4,6 +4,7 @@ import com.lifeos.app.core.storage.ThemeMode
 import com.lifeos.app.features.auth.data.SessionExpiryRepositoryImpl
 import com.lifeos.app.features.auth.domain.model.AuthSession
 import com.lifeos.app.features.auth.domain.model.AuthUser
+import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.auth.domain.repository.AuthRepository
 import com.lifeos.app.features.auth.domain.usecase.GetSessionUseCase
 import com.lifeos.app.features.auth.domain.usecase.LogoutUseCase
@@ -59,6 +60,12 @@ internal class FakeAuthRepository : AuthRepository {
     override suspend fun updateSessionDisplayName(fullName: String) {
         sessionName = fullName
     }
+
+    var sessionTokens = SessionTokens(accessToken = "a", refreshToken = "r")
+
+    override suspend fun replaceSessionTokens(tokens: SessionTokens) {
+        sessionTokens = tokens
+    }
 }
 
 internal class FakeProfileRepository : ProfileRepository {
@@ -90,6 +97,17 @@ internal class FakeProfileRepository : ProfileRepository {
 
     override suspend fun updateTimezone(timezone: String) {
         updatedTimezones += timezone
+    }
+
+    var changePasswordFailure: Exception? = null
+    var onChangePassword: suspend () -> Unit = {}
+    val passwordChanges = mutableListOf<Pair<String, String>>()
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): SessionTokens {
+        passwordChanges += currentPassword to newPassword
+        onChangePassword()
+        changePasswordFailure?.let { throw it }
+        return SessionTokens(accessToken = "new-access", refreshToken = "new-refresh")
     }
 
     override suspend fun deleteAccount(password: String) {

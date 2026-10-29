@@ -85,7 +85,16 @@ This document defines the REST API surface exposed by the NestJS backend, implem
   - Other failures: a generic connection message.
   - Success: the session is cleared on the device only, since the backend already removed every refresh token, so no logout call is made. The app then returns to sign-in, which shows "Hesabın ve tüm verilerin silindi."
 
-`PATCH /users/me/password` (FR-PROFILE-03) and the session-management pair (FR-PROFILE-05) remain undelivered — Sprint 17.0's explicit scope was "Do NOT implement: Password reset" and its 3-route API list had no session routes. See `backend/src/modules/README.md` for the suggested next step.
+`PATCH /users/me/password` (FR-PROFILE-03) changes the password and signs out every **other** session; the calling device stays signed in.
+
+- **Body:** `{ "currentPassword": string, "newPassword": string }`. `newPassword` follows the sign-up rule (8–72 characters) and must differ from `currentPassword`. Unknown fields → `400`.
+- **Responses:** `200 { "accessToken", "refreshToken" }`, a new token pair in a new session family; `400` validation or a new password equal to the current one; `401` no or invalid token; **`403` wrong current password** (nothing changes; `403`, not `401`, for the same reason as account deletion); `404` the account no longer exists.
+- **Sessions:** every refresh token of the user is revoked before the new pair is issued, so other devices are signed out at their next refresh. Access tokens already issued stay valid until they expire (stateless JWTs, at most `JWT_ACCESS_TOKEN_TTL`).
+- **Rate limit:** 5 attempts per minute per client IP (`THROTTLE_PASSWORD_CHANGE_LIMIT`), then `429`. Every request counts, including failed ones.
+- The route is served by `AuthModule` (sessions and tokens are its job) under the `users` path, so `UsersModule` doesn't depend on `AuthModule`.
+- **Mobile client:** Profile's "Şifre Değiştir" row opens its own screen with the current password, the new password and its confirmation, checked with the sign-up rules. A wrong current password shows "Mevcut şifre yanlış." under that field, and a `429` shows "Çok fazla deneme, biraz sonra tekrar dene." On success the app saves the new token pair, returns to Profile and shows "Şifren değiştirildi. Diğer cihazlardaki oturumların kapatıldı."
+
+The session-management pair (FR-PROFILE-05) remains undelivered.
 
 ### Admin
 

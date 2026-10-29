@@ -2,8 +2,10 @@ package com.lifeos.app.features.profile.data.remote
 
 import com.lifeos.app.core.network.ApiConfig
 import com.lifeos.app.core.network.dataOrThrow
+import com.lifeos.app.features.profile.data.dto.ChangePasswordRequestDto
 import com.lifeos.app.features.profile.data.dto.DeleteAccountRequestDto
 import com.lifeos.app.features.profile.data.dto.DeleteAccountResponseDto
+import com.lifeos.app.features.profile.data.dto.SessionTokensDto
 import com.lifeos.app.features.profile.data.dto.UpdateDisplayNameRequestDto
 import com.lifeos.app.features.profile.data.dto.UpdateThemePreferenceRequestDto
 import com.lifeos.app.features.profile.data.dto.UpdateTimezoneRequestDto
@@ -34,6 +36,9 @@ class UsersRemoteDataSource(private val httpClient: HttpClient) {
     /** `DELETE` with a body: the backend needs the password to confirm the deletion. */
     suspend fun deleteMe(request: DeleteAccountRequestDto): DeleteAccountResponseDto =
         httpClient.delete(endpoint("users/me")) { jsonBody(request) }.dataOrThrow()
+
+    suspend fun changePassword(request: ChangePasswordRequestDto): SessionTokensDto =
+        httpClient.patch(endpoint("users/me/password")) { jsonBody(request) }.dataOrThrow()
 
     private inline fun <reified T> io.ktor.client.request.HttpRequestBuilder.jsonBody(body: T) {
         contentType(ContentType.Application.Json)

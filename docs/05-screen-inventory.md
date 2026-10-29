@@ -75,7 +75,7 @@ This document catalogues every screen in LifeOS, grouped by module, and defines 
 | Settings | App preferences (theme, notifications, locale). |
 | Account & Security | Password change and active session management. |
 
-Built so far, all inside Profile Overview: name editing is a dialog (not a separate Edit Profile screen), and the theme selector sits on the same screen. The Session section has "Çıkış Yap" and "Hesabı Sil" (password-confirmed, permanent account deletion; see [15-api-design.md](15-api-design.md#users--profile)).
+Built so far: name editing is a dialog inside Profile Overview (not a separate Edit Profile screen), the theme selector sits on the same screen, and password change is its own screen opened from the "Şifre Değiştir" row (active session management is not built). The Session section has "Çıkış Yap" and "Hesabı Sil" (password-confirmed, permanent account deletion; see [15-api-design.md](15-api-design.md#users--profile)).
 
 ## Screen Details
 

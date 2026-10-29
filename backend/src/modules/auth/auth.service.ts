@@ -1,5 +1,13 @@
 import { randomBytes, randomUUID, createHash } from 'crypto';
-import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -15,6 +23,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthTokensDto } from './dto/auth-tokens.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 /**
  * Precomputed once at module load: a valid bcrypt hash of an arbitrary
@@ -128,6 +137,38 @@ export class AuthService {
     }
 
     return { success: true };
+  }
+
+  /**
+   * `PATCH /users/me/password`. After checking the current password, it
+   * stores the new hash, revokes every refresh token of the user (all
+   * sessions, this one included), and issues a fresh pair in a new family:
+   * the caller swaps to it and stays signed in, every other device is
+   * signed out at its next refresh. Access tokens already issued stay valid
+   * until they expire (stateless JWTs, at most `JWT_ACCESS_TOKEN_TTL`).
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<AuthTokensDto> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+    if (!(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
+      throw new ForbiddenException('Current password is incorrect.');
+    }
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException('The new password must be different from the current one.');
+    }
+
+    const updated = await this.usersService.updatePasswordHash(
+      user.id,
+      await this.hashPassword(dto.newPassword),
+    );
+    if (!updated) {
+      throw new NotFoundException('User not found.');
+    }
+    const revoked = await this.refreshTokensRepository.revokeAllForUser(user.id);
+    this.logger.log(`Password changed (user ${user.id}); ${revoked} session(s) signed out.`);
+    return this.issueTokenPair(user);
   }
 
   private async issueTokenPair(user: User, familyId?: string): Promise<AuthTokensDto> {

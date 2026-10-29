@@ -60,4 +60,5 @@ sealed interface ProfileEvent {
 sealed interface ProfileAction {
     data class ShowMessage(val message: String) : ProfileAction
     data object NavigateToLogin : ProfileAction
+    data object NavigateToChangePassword : ProfileAction
 }

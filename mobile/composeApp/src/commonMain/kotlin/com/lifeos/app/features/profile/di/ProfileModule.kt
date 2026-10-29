@@ -3,7 +3,9 @@ package com.lifeos.app.features.profile.di
 import com.lifeos.app.features.profile.data.remote.UsersRemoteDataSource
 import com.lifeos.app.features.profile.data.repository.ProfileRepositoryImpl
 import com.lifeos.app.features.profile.domain.repository.ProfileRepository
+import com.lifeos.app.features.profile.domain.usecase.ChangePasswordUseCase
 import com.lifeos.app.features.profile.domain.usecase.DeleteAccountUseCase
+import com.lifeos.app.features.profile.presentation.changepassword.ChangePasswordViewModel
 import com.lifeos.app.features.profile.domain.usecase.GetUserProfileUseCase
 import com.lifeos.app.features.profile.domain.usecase.ObserveThemeModeUseCase
 import com.lifeos.app.features.profile.domain.usecase.SetThemeModeUseCase
@@ -34,6 +36,8 @@ val profileModule: Module = module {
     factory {
         DeleteAccountUseCase(profileRepository = get(), authRepository = get(), sessionExpiryRepository = get())
     }
+    factory { ChangePasswordUseCase(profileRepository = get(), authRepository = get()) }
+    viewModel { ChangePasswordViewModel(changePassword = get()) }
     viewModel {
         ProfileViewModel(
             getSession = get(),

@@ -13,7 +13,10 @@ import com.lifeos.app.features.planner.presentation.CalendarRoute
 import com.lifeos.app.features.planner.presentation.CreateTaskRoute
 import com.lifeos.app.features.planner.presentation.PlannerRoute
 import com.lifeos.app.features.planner.presentation.TaskDetailRoute
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.lifeos.app.features.profile.presentation.ProfileRoute
+import com.lifeos.app.features.profile.presentation.changepassword.ChangePasswordRoute
 import com.lifeos.app.features.travel.presentation.CreateTripRoute
 import com.lifeos.app.features.travel.presentation.TravelDetailRoute
 import com.lifeos.app.features.travel.presentation.TravelRoute
@@ -130,7 +133,26 @@ fun NavGraphBuilder.mainGraph(
     composable(Destination.AiConversation.route) {
         AiChatRoute(onNavigateBack = { navController.popBackStack() })
     }
-    composable(Destination.Profile.route) { ProfileRoute(onLoggedOut = onLoggedOut) }
+    composable(Destination.Profile.route) { backStackEntry ->
+        val resultKey = Destination.ChangePassword.RESULT_PASSWORD_CHANGED
+        val passwordChanged by backStackEntry.savedStateHandle.getStateFlow(resultKey, false).collectAsState()
+        ProfileRoute(
+            onLoggedOut = onLoggedOut,
+            onNavigateToChangePassword = { navController.navigate(Destination.ChangePassword.route) },
+            passwordChanged = passwordChanged,
+            onPasswordChangedShown = { backStackEntry.savedStateHandle[resultKey] = false },
+        )
+    }
+    composable(Destination.ChangePassword.route) {
+        ChangePasswordRoute(
+            onNavigateBack = { navController.popBackStack() },
+            onPasswordChanged = {
+                navController.previousBackStackEntry?.savedStateHandle
+                    ?.set(Destination.ChangePassword.RESULT_PASSWORD_CHANGED, true)
+                navController.popBackStack()
+            },
+        )
+    }
 }
 
 /**

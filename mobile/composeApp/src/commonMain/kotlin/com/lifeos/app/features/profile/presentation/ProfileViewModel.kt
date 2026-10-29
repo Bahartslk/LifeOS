@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
  * - Once the profile loads, the device time zone is copied to the backend
  *   ([SyncDeviceTimezoneUseCase]).
  * - "Profili Düzenle" opens a name dialog ([UpdateDisplayNameUseCase]).
+ * - "Şifre Değiştir" opens its own screen.
  * - "Hesabı Sil" opens a password-confirmed dialog ([DeleteAccountUseCase]);
  *   on success the screen navigates to sign-in, which shows the notice.
  * - Logout runs [LogoutUseCase]; server-side revocation inside it is best
@@ -70,7 +71,8 @@ class ProfileViewModel(
             ProfileEvent.EditNameSaved -> saveName()
             ProfileEvent.EditNameDismissed -> dismissEditName()
             ProfileEvent.SecurityClicked -> showMessage(ProfileStrings.SECURITY_COMING_SOON)
-            ProfileEvent.ChangePasswordClicked -> showMessage(ProfileStrings.CHANGE_PASSWORD_COMING_SOON)
+            ProfileEvent.ChangePasswordClicked ->
+                viewModelScope.launch { _actions.send(ProfileAction.NavigateToChangePassword) }
             is ProfileEvent.AppearanceOptionSelected -> selectThemeMode(event.mode)
             ProfileEvent.LanguageClicked -> showMessage(ProfileStrings.LANGUAGE_COMING_SOON)
             ProfileEvent.AiPreferencesClicked -> showMessage(ProfileStrings.AI_PREFERENCES_COMING_SOON)
