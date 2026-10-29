@@ -3,6 +3,11 @@ package com.lifeos.app.features.auth.di
 import com.lifeos.app.core.network.AuthTokenProvider
 import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.features.auth.data.AuthTokenProviderImpl
+import com.lifeos.app.features.auth.data.SessionExpiryRepositoryImpl
+import com.lifeos.app.features.auth.domain.repository.SessionExpiryRepository
+import com.lifeos.app.features.auth.domain.usecase.ConsumeSessionExpiredNoticeUseCase
+import com.lifeos.app.features.auth.domain.usecase.ObserveSessionExpiredUseCase
+import com.lifeos.app.features.auth.presentation.session.SessionGuardViewModel
 import com.lifeos.app.features.auth.data.local.AuthTokenLocalDataSource
 import com.lifeos.app.features.auth.data.local.OnboardingLocalDataSource
 import com.lifeos.app.features.auth.data.remote.AuthRemoteDataSource
@@ -59,10 +64,13 @@ val authModule: Module = module {
         AuthRepositoryImpl(remoteDataSource = get(), tokenLocalDataSource = get(), bearerTokenCache = get())
     }
     single<OnboardingRepository> { OnboardingRepositoryImpl(localDataSource = get()) }
+    // One instance, bound twice: AuthTokenProviderImpl marks the expiry, the app observes it.
+    single { SessionExpiryRepositoryImpl() }
+    single<SessionExpiryRepository> { get<SessionExpiryRepositoryImpl>() }
 
     // The real AuthTokenProvider — overrides NetworkModule's NoOpAuthTokenProvider.
     single<AuthTokenProvider> {
-        AuthTokenProviderImpl(tokenLocalDataSource = get(), authRemoteDataSource = get())
+        AuthTokenProviderImpl(tokenLocalDataSource = get(), authRemoteDataSource = get(), sessionExpiry = get())
     }
 
     // Use cases
@@ -73,11 +81,14 @@ val authModule: Module = module {
     factory { LogoutUseCase(authRepository = get()) }
     factory { ObserveOnboardingCompletedUseCase(onboardingRepository = get()) }
     factory { CompleteOnboardingUseCase(onboardingRepository = get()) }
+    factory { ObserveSessionExpiredUseCase(sessionExpiryRepository = get()) }
+    factory { ConsumeSessionExpiredNoticeUseCase(sessionExpiryRepository = get()) }
 
     // ViewModels
     viewModel { SplashViewModel(getSession = get(), observeOnboardingCompleted = get()) }
     viewModel { OnboardingViewModel(completeOnboarding = get()) }
-    viewModel { LoginViewModel(login = get()) }
+    viewModel { LoginViewModel(login = get(), consumeSessionExpiredNotice = get()) }
+    viewModel { SessionGuardViewModel(observeSessionExpired = get()) }
     viewModel { RegisterViewModel(register = get()) }
     viewModel { ForgotPasswordViewModel(requestPasswordReset = get()) }
 }

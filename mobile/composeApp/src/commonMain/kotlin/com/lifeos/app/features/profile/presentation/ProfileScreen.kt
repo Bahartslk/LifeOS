@@ -70,10 +70,14 @@ private fun ProfileScreen(
         snackbarHost = { AppSnackbarHost(snackbarHostState) },
     ) { paddingValues ->
         when {
+            // Signing out stays possible even when the profile can't load
+            // (e.g. the stored session is gone), so the user is never stuck here.
             uiState.errorMessage != null -> ErrorView(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 description = uiState.errorMessage,
                 onRetry = { onEvent(ProfileEvent.RetryClicked) },
+                secondaryActionLabel = ProfileStrings.LOGOUT_ACTION,
+                onSecondaryAction = { onEvent(ProfileEvent.LogoutClicked) },
             )
             uiState.isLoading -> SkeletonListContent(
                 count = LOADING_SKELETON_COUNT,

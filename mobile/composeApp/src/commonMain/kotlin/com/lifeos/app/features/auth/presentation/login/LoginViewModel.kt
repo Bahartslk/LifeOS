@@ -3,6 +3,7 @@ package com.lifeos.app.features.auth.presentation.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lifeos.app.features.auth.domain.model.InvalidCredentialsException
+import com.lifeos.app.features.auth.domain.usecase.ConsumeSessionExpiredNoticeUseCase
 import com.lifeos.app.features.auth.domain.usecase.LoginUseCase
 import com.lifeos.app.features.auth.domain.validation.EmailValidator
 import com.lifeos.app.features.auth.domain.validation.PasswordValidator
@@ -15,8 +16,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+/**
+ * When the user lands here because their session expired (the backend
+ * rejected the refresh token), the screen says so once instead of silently
+ * showing the sign-in form.
+ */
 class LoginViewModel(
     private val login: LoginUseCase,
+    consumeSessionExpiredNotice: ConsumeSessionExpiredNoticeUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -24,6 +31,12 @@ class LoginViewModel(
 
     private val _actions = Channel<LoginAction>(Channel.BUFFERED)
     val actions = _actions.receiveAsFlow()
+
+    init {
+        if (consumeSessionExpiredNotice()) {
+            sendAction(LoginAction.ShowMessage(AuthStrings.SESSION_EXPIRED_MESSAGE))
+        }
+    }
 
     fun onEvent(event: LoginEvent) {
         when (event) {

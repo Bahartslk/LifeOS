@@ -513,6 +513,7 @@ sequenceDiagram
 - Access tokens are short-lived JWTs (target: 15 minutes), signed with RS256, sent as `Authorization: Bearer <token>`, per [12-project-architecture.md](12-project-architecture.md#jwt-strategy).
 - Refresh tokens are longer-lived (target: 30 days), stored server-side per [14-database-design.md](14-database-design.md#entities) as `refresh_tokens`, and are rotated on every use; reuse of a rotated-out token revokes its entire token family.
 - `/api/v1/auth/refresh` exchanges a valid, non-revoked refresh token for a new access token and a new refresh token (the old one is revoked in the same operation).
+- **Mobile client:** the shared Ktor client's bearer `Auth` plugin refreshes on the first `401` (one refresh for any number of concurrent `401`s; the backend's `401` carries no `WWW-Authenticate` header, which Ktor accepts because there is a single auth provider) and retries the requests. `AuthTokenProviderImpl` saves both rotated tokens. If the backend **rejects** the refresh (`400`/`401`/`403`), the local session is cleared and `SessionExpiryRepository` signals the root navigation, which returns to sign-in with a cleared back stack; the sign-in screen says "Oturumun sona erdi, lütfen tekrar giriş yap." A network error, timeout or `5xx` during a refresh keeps the session; the next request tries again. Signing in or registering drops the client's cached token, so the first request after it already carries the new access token.
 
 ## Authorization
 

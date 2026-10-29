@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,7 +22,9 @@ import com.lifeos.app.core.designsystem.theme.LifeOSSpacing
  * Shared error state — a recoverable failure (network error, AI provider
  * timeout, per docs/09-ai-features.md#limitations) with a retry action.
  * Defaults to generic Turkish copy; pass [title]/[description] for a
- * context-specific message where one is available.
+ * context-specific message where one is available. [secondaryActionLabel]
+ * with [onSecondaryAction] adds a quieter way out below the retry button
+ * (e.g. signing out when retrying can't help).
  */
 @Composable
 fun ErrorView(
@@ -30,6 +33,8 @@ fun ErrorView(
     description: String? = null,
     retryLabel: String = DesignSystemStrings.ERROR_RETRY,
     onRetry: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null,
 ) {
     Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Column(
@@ -58,6 +63,9 @@ fun ErrorView(
                     onClick = onRetry,
                     modifier = Modifier.padding(top = LifeOSSpacing.sm),
                 )
+            }
+            if (secondaryActionLabel != null && onSecondaryAction != null) {
+                TextButton(onClick = onSecondaryAction) { Text(secondaryActionLabel) }
             }
         }
     }
