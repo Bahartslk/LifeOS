@@ -2,6 +2,7 @@ package com.lifeos.app.features.ai.presentation
 
 import com.lifeos.app.features.ai.domain.model.AiTaskContext
 import com.lifeos.app.features.ai.domain.model.DailyBrief
+import com.lifeos.app.features.ai.domain.model.DailyReminder
 
 /**
  * A load-once, display screen — the same loading/loaded/failed shape every
@@ -20,10 +21,16 @@ data class AiAssistantUiState(
     val dailyBrief: DailyBriefUiState = DailyBriefUiState(),
 )
 
+/**
+ * [addingReminders] are being saved right now; [addedReminders] were saved
+ * as tasks and can't be added again. Both survive a refresh of the brief.
+ */
 data class DailyBriefUiState(
     val isLoading: Boolean = true,
     val brief: DailyBrief? = null,
     val errorMessage: String? = null,
+    val addingReminders: Set<DailyReminder> = emptySet(),
+    val addedReminders: Set<DailyReminder> = emptySet(),
 )
 
 sealed interface AiAssistantEvent {
@@ -32,6 +39,7 @@ sealed interface AiAssistantEvent {
     data class TaskClicked(val taskId: String) : AiAssistantEvent
     data object AddTaskClicked : AiAssistantEvent
     data object DailyBriefRefreshClicked : AiAssistantEvent
+    data class AddReminderToAgendaClicked(val reminder: DailyReminder) : AiAssistantEvent
 }
 
 sealed interface AiAssistantAction {

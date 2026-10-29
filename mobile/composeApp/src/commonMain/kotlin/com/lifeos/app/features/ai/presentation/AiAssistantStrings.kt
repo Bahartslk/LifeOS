@@ -54,6 +54,16 @@ internal object AiAssistantStrings {
     const val BRIEF_ERROR_MESSAGE = "Günün özeti şu anda alınamadı. Lütfen biraz sonra tekrar deneyin."
     const val BRIEF_EMPTY_PRIORITIES = "Bugün için sıralanacak görev yok."
     const val AI_QUOTA_EXCEEDED_MESSAGE = "Bugünlük yapay zeka hakkın doldu, yarın tekrar dene."
+    const val BRIEF_REMINDERS_TITLE = "Hatırlatma önerileri"
+    const val REMINDER_ADD_ACTION = "Ajandaya ekle"
+    const val REMINDER_ADDED_LABEL = "Eklendi"
+    const val REMINDER_ADD_ERROR_MESSAGE = "Hatırlatma ajandaya eklenemedi. Lütfen tekrar deneyin."
+
+    fun reminderDateLabel(date: String) = "Önerilen tarih: $date"
+
+    fun reminderAddDescription(title: String) = "$title ajandaya ekle"
+
+    fun reminderAddedDescription(title: String) = "$title ajandaya eklendi"
 
     // Screen states
     const val LOAD_ERROR_MESSAGE = "Yapay zeka bağlamı yüklenemedi. Lütfen tekrar deneyin."

@@ -132,6 +132,7 @@ private fun AiAssistantContent(
                 AiDailyBriefSection(
                     state = dailyBrief,
                     onRefreshClick = { onEvent(AiAssistantEvent.DailyBriefRefreshClicked) },
+                    onAddReminderClick = { onEvent(AiAssistantEvent.AddReminderToAgendaClicked(it)) },
                 )
                 AiProgressSummarySection(progress = context.progress)
                 AiTaskListSection(

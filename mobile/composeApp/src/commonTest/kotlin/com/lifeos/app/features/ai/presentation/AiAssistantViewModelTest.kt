@@ -2,7 +2,10 @@ package com.lifeos.app.features.ai.presentation
 
 import com.lifeos.app.features.ai.domain.model.AiQuotaExceededException
 import com.lifeos.app.features.ai.domain.model.DailyBrief
+import com.lifeos.app.features.ai.domain.model.DailyReminder
+import com.lifeos.app.features.ai.domain.model.ReminderRelatedTo
 import com.lifeos.app.features.ai.domain.repository.DailyBriefRepository
+import com.lifeos.app.features.ai.domain.usecase.AddReminderToAgendaUseCase
 import com.lifeos.app.features.ai.domain.usecase.BuildAiTaskContextUseCase
 import com.lifeos.app.features.ai.domain.usecase.GetDailyBriefUseCase
 import com.lifeos.app.features.planner.domain.model.CreateTaskRequest
@@ -11,11 +14,16 @@ import com.lifeos.app.features.planner.domain.model.PlannerDashboard
 import com.lifeos.app.features.planner.domain.model.PlannerOverview
 import com.lifeos.app.features.planner.domain.model.Task
 import com.lifeos.app.features.planner.domain.model.TaskDetail
+import com.lifeos.app.features.planner.domain.model.TaskSource
+import com.lifeos.app.features.planner.domain.model.TaskStatus
 import com.lifeos.app.features.planner.domain.repository.PlannerRepository
+import com.lifeos.app.features.planner.domain.usecase.CreateTaskUseCase
 import com.lifeos.app.features.planner.domain.usecase.GetPlannerDashboardUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -29,6 +37,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AiAssistantViewModelTest {
@@ -121,10 +130,82 @@ class AiAssistantViewModelTest {
         assertSame(BRIEF, viewModel.uiState.value.dailyBrief.brief)
     }
 
+    @Test
+    fun addReminder_success_createsTheTaskAndMarksItAdded() = runTest {
+        briefRepository.results += Result.success(BRIEF_WITH_REMINDER)
+        val viewModel = createViewModel()
+
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+
+        val request = plannerRepository.createdRequests.single()
+        assertEquals(REMINDER.title, request.title)
+        assertEquals(REMINDER.recommendedDate, request.dueDate.date)
+        assertTrue(request.hasReminder)
+        val briefState = viewModel.uiState.value.dailyBrief
+        assertEquals(setOf(REMINDER), briefState.addedReminders)
+        assertTrue(briefState.addingReminders.isEmpty())
+        // The task context reloads so the new task shows up below the card.
+        assertEquals(2, plannerRepository.dashboardCalls)
+    }
+
+    @Test
+    fun addReminder_failure_showsSnackbarAndLetsTheUserTryAgain() = runTest {
+        briefRepository.results += Result.success(BRIEF_WITH_REMINDER)
+        val viewModel = createViewModel()
+        val actions = mutableListOf<AiAssistantAction>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.actions.toList(actions) }
+        plannerRepository.createResults += Result.failure(RuntimeException("500"))
+
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+
+        assertEquals(listOf<AiAssistantAction>(AiAssistantAction.ShowMessage(AiAssistantStrings.REMINDER_ADD_ERROR_MESSAGE)), actions)
+        val briefState = viewModel.uiState.value.dailyBrief
+        assertTrue(briefState.addedReminders.isEmpty())
+        assertTrue(briefState.addingReminders.isEmpty())
+
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+        assertEquals(2, plannerRepository.createdRequests.size)
+        assertEquals(setOf(REMINDER), viewModel.uiState.value.dailyBrief.addedReminders)
+    }
+
+    @Test
+    fun addReminder_sameSuggestionTwice_createsOnlyOneTask() = runTest {
+        briefRepository.results += Result.success(BRIEF_WITH_REMINDER)
+        val viewModel = createViewModel()
+        val gate = CompletableDeferred<Unit>()
+        plannerRepository.createGate = gate
+
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+        assertEquals(setOf(REMINDER), viewModel.uiState.value.dailyBrief.addingReminders)
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER)) // while saving
+        gate.complete(Unit)
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER)) // after it was added
+
+        assertEquals(1, plannerRepository.createdRequests.size)
+    }
+
+    @Test
+    fun addedReminder_staysAddedAfterTheBriefIsRefreshed() = runTest {
+        briefRepository.results += Result.success(BRIEF_WITH_REMINDER)
+        val viewModel = createViewModel()
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+        briefRepository.results += Result.success(BRIEF_WITH_REMINDER)
+
+        viewModel.onEvent(AiAssistantEvent.DailyBriefRefreshClicked)
+        viewModel.onEvent(AiAssistantEvent.AddReminderToAgendaClicked(REMINDER))
+
+        assertEquals(setOf(REMINDER), viewModel.uiState.value.dailyBrief.addedReminders)
+        assertEquals(1, plannerRepository.createdRequests.size)
+    }
+
     private fun createViewModel() = AiAssistantViewModel(
         getPlannerDashboard = GetPlannerDashboardUseCase(plannerRepository),
         buildAiTaskContext = BuildAiTaskContextUseCase(),
         getDailyBrief = GetDailyBriefUseCase(briefRepository),
+        addReminderToAgenda = AddReminderToAgendaUseCase(
+            createTask = CreateTaskUseCase(plannerRepository),
+            today = { TODAY },
+        ),
     )
 
     private class StubDailyBriefRepository : DailyBriefRepository {
@@ -151,13 +232,44 @@ class AiAssistantViewModelTest {
         override suspend fun getTaskDetail(taskId: String): Result<TaskDetail> = error("unused")
         override suspend fun toggleSubtaskCompletion(taskId: String, subtaskId: String): Result<Unit> = error("unused")
         override suspend fun deleteTask(taskId: String): Result<Unit> = error("unused")
-        override suspend fun createTask(request: CreateTaskRequest): Result<Task> = error("unused")
+        val createdRequests = mutableListOf<CreateTaskRequest>()
+        val createResults = ArrayDeque<Result<Task>>()
+        var createGate: CompletableDeferred<Unit>? = null
+
+        override suspend fun createTask(request: CreateTaskRequest): Result<Task> {
+            createdRequests += request
+            createGate?.await()
+            return createResults.removeFirstOrNull() ?: Result.success(request.toTask())
+        }
+
+        private fun CreateTaskRequest.toTask() = Task(
+            id = "task-${createdRequests.size}",
+            title = title,
+            description = description,
+            dueDate = dueDate,
+            priority = priority,
+            category = category,
+            status = TaskStatus.TODO,
+            source = TaskSource.AI_ASSISTANT,
+            tags = tags,
+            hasReminder = hasReminder,
+            createdAt = TODAY,
+        )
+
         override suspend fun getCalendarMonth(year: Int, month: Int): Result<PlannerCalendarMonth> = error("unused")
         override suspend fun getTasksForDay(date: LocalDate): Result<List<Task>> = error("unused")
     }
 
     private companion object {
+        val TODAY = LocalDate(2026, 10, 28)
         val BRIEF = DailyBrief(summary = null, priorities = emptyList(), motivation = "Başarabilirsin!")
+        val REMINDER = DailyReminder(
+            title = "Otel rezervasyonunu kontrol et",
+            reason = "Seyahatten bir gün önce.",
+            relatedTo = ReminderRelatedTo.TRAVEL,
+            recommendedDate = LocalDate(2026, 10, 30),
+        )
+        val BRIEF_WITH_REMINDER = BRIEF.copy(reminders = listOf(REMINDER))
 
         val DASHBOARD = PlannerDashboard(
             date = LocalDate(2026, 10, 28),

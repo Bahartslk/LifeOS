@@ -20,6 +20,20 @@ data class DailyOverviewResultDto(
     val summary: DailySummaryResultDto? = null,
     val priorities: List<DailyPriorityDto>? = null,
     val motivation: DailyMotivationResultDto? = null,
+    val reminders: List<DailyReminderDto>? = null,
+)
+
+/**
+ * `relatedTo` is kept as text so an unexpected value from a newer backend
+ * drops only that suggestion instead of failing the whole response;
+ * `recommendedDate` is `YYYY-MM-DD` or `null`.
+ */
+@Serializable
+data class DailyReminderDto(
+    val title: String,
+    val reason: String = "",
+    val relatedTo: String,
+    val recommendedDate: String? = null,
 )
 
 @Serializable
