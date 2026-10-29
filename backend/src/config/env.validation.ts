@@ -80,6 +80,7 @@ export const envValidationSchema = Joi.object({
   AI_MAX_TOKENS: Joi.number().integer().min(1).default(1024),
   AI_TIMEOUT_MS: Joi.number().integer().min(1000).default(15000),
   AI_RETRY_COUNT: Joi.number().integer().min(0).max(5).default(2),
+  AI_CHAT_DAILY_LIMIT: Joi.number().integer().min(1).max(1000).default(5),
   // "feature=providerId,feature2=providerId2" — see ProviderRouter.resolveChain.
   AI_FEATURE_PROVIDER_OVERRIDES: Joi.string().optional().allow(''),
 });

@@ -58,6 +58,8 @@ export interface AppConfig {
     maxTokens: number;
     timeoutMs: number;
     retryCount: number;
+    /** AI chat messages each user may send per day (in their own time zone); read by `AssistantChatService`. */
+    chatDailyLimit: number;
     /**
      * Raw `"feature=providerId"` pairs (e.g. `{ planner: "gemini", travel:
      * "openrouter" }`) — kept as a plain string map here since this config
@@ -139,6 +141,7 @@ export default (): AppConfig => ({
     maxTokens: parseInt(process.env.AI_MAX_TOKENS ?? '1024', 10),
     timeoutMs: parseInt(process.env.AI_TIMEOUT_MS ?? '15000', 10),
     retryCount: parseInt(process.env.AI_RETRY_COUNT ?? '2', 10),
+    chatDailyLimit: parseInt(process.env.AI_CHAT_DAILY_LIMIT ?? '5', 10),
     featureProviderOverrides: parseKeyValueMap(process.env.AI_FEATURE_PROVIDER_OVERRIDES),
   },
 });
