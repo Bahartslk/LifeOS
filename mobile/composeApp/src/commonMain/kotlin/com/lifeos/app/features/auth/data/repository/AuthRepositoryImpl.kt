@@ -46,7 +46,7 @@ class AuthRepositoryImpl(
                 refreshToken = response.refreshToken,
                 user = AuthUser(email = response.user.email, fullName = response.user.displayName),
             )
-            tokenLocalDataSource.saveSession(session)
+            startSession(session)
             Result.success(session)
         } catch (e: ApiException) {
             if (e.statusCode == HttpStatusCode.Unauthorized.value) {
@@ -70,7 +70,7 @@ class AuthRepositoryImpl(
                 refreshToken = tokens.refreshToken,
                 user = AuthUser(email = email, fullName = fullName),
             )
-            tokenLocalDataSource.saveSession(session)
+            startSession(session)
             Result.success(session)
         } catch (e: ApiException) {
             if (e.statusCode == HttpStatusCode.Conflict.value) {
@@ -107,6 +107,16 @@ class AuthRepositoryImpl(
             runCatching { remoteDataSource.logout(session.accessToken, session.refreshToken) }
         }
         tokenLocalDataSource.clearSession()
+        bearerTokenCache.clear()
+    }
+
+    /**
+     * Saves the new session and drops whatever the shared client cached
+     * (e.g. "no token" after an expired session), so the very next request
+     * already carries the new access token instead of first getting a 401.
+     */
+    private suspend fun startSession(session: AuthSession) {
+        tokenLocalDataSource.saveSession(session)
         bearerTokenCache.clear()
     }
 

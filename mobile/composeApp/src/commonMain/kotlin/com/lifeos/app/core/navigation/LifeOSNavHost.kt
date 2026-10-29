@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.lifeos.app.core.presentation.CollectActions
 import com.lifeos.app.features.auth.presentation.navigation.AUTH_GRAPH_ROUTE
 import com.lifeos.app.features.auth.presentation.navigation.authGraph
+import com.lifeos.app.features.auth.presentation.session.SessionGuardViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Root navigation host: two top-level, mutually isolated graphs.
@@ -23,8 +26,27 @@ import com.lifeos.app.features.auth.presentation.navigation.authGraph
  * satisfying "Authentication must be isolated from future modules."
  */
 @Composable
-fun LifeOSNavHost() {
+fun LifeOSNavHost(sessionGuard: SessionGuardViewModel = koinViewModel()) {
     val navController = rememberNavController()
+
+    // Clears the whole back stack (the main graph and every ViewModel scoped
+    // to it) so system back from Login can never return to an authenticated
+    // screen.
+    val navigateToSignIn = {
+        navController.navigate(Destination.SignIn.route) {
+            popUpTo(navController.graph.id) { inclusive = true }
+        }
+    }
+
+    // The session expired while the app was running (the backend rejected
+    // the refresh token): leave the main graph instead of letting every
+    // screen show an error it can't recover from. Already on an auth screen
+    // means there's nothing to leave.
+    CollectActions(sessionGuard.sessionExpired) {
+        if (navController.currentDestination?.route == Destination.Dashboard.route) {
+            navigateToSignIn()
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -33,16 +55,7 @@ fun LifeOSNavHost() {
         authGraph(navController)
 
         composable(Destination.Dashboard.route) {
-            MainScreen(
-                // Clears the whole back stack (the main graph and every
-                // ViewModel scoped to it) so system back from Login can
-                // never return to an authenticated screen.
-                onLoggedOut = {
-                    navController.navigate(Destination.SignIn.route) {
-                        popUpTo(navController.graph.id) { inclusive = true }
-                    }
-                },
-            )
+            MainScreen(onLoggedOut = navigateToSignIn)
         }
     }
 }

@@ -58,6 +58,7 @@ internal object AuthStrings {
     const val LOGIN_COMING_SOON = "Bu özellik yakında kullanıma sunulacak."
     const val LOGIN_INVALID_CREDENTIALS = "E-posta veya şifre hatalı."
     const val LOGIN_CONNECTION_ERROR = "Giriş yapılamadı. Bağlantınızı kontrol edip tekrar deneyin."
+    const val SESSION_EXPIRED_MESSAGE = "Oturumun sona erdi, lütfen tekrar giriş yap."
 
     // Register
     const val REGISTER_TITLE = "Hesap Oluştur"
