@@ -1,31 +1,34 @@
 package com.lifeos.app.features.profile.domain.repository
 
 import com.lifeos.app.core.storage.ThemeMode
+import com.lifeos.app.features.profile.domain.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Abstracts Profile's one genuinely persisted piece of state — the user's
- * theme override — per docs/12-project-architecture.md#repository-pattern.
- * [ProfileViewModel][com.lifeos.app.features.profile.presentation.ProfileViewModel]
- * depends only on this interface; the concrete implementation
- * ([com.lifeos.app.features.profile.data.repository.ProfileRepositoryImpl])
- * is supplied via Koin.
+ * The signed-in user's profile and preferences, per
+ * docs/12-project-architecture.md#repository-pattern. Backed by the
+ * backend's `/users` routes; the theme is also kept on the device so it
+ * applies before (and without) any network call.
  *
- * Reuses [ThemeMode] directly rather than a Profile-local duplicate — it's
- * a `core/storage` type, the same shared-infrastructure layer Planner's own
- * domain models already depend on directly (e.g. `kotlinx.datetime.LocalDate`
- * in [com.lifeos.app.features.planner.domain.model.TaskDueDate]), not a
- * feature-specific data type this interface would otherwise be leaking.
- *
- * Every other row on the Profile screen (Edit Profile, Security, Change
- * Password, Language, AI/Travel Preferences, Notification/Reminder
- * settings, Privacy Policy, Terms of Service) is a placeholder
- * action with nothing to persist — see [com.lifeos.app.features.profile.presentation.ProfileViewModel]'s
- * KDoc for why none of them need a repository method here, per this
- * sprint's "avoid unnecessary repositories" scope.
+ * Reuses [ThemeMode] directly rather than a Profile-local duplicate: it's a
+ * `core/storage` type, shared infrastructure rather than a feature type.
  */
 interface ProfileRepository {
     fun observeThemeMode(): Flow<ThemeMode>
 
+    /** Saves the theme on the device, then copies it to the backend (best effort). */
     suspend fun setThemeMode(mode: ThemeMode)
+
+    suspend fun getProfile(): UserProfile
+
+    suspend fun updateDisplayName(displayName: String): UserProfile
+
+    suspend fun updateTimezone(timezone: String)
+
+    /**
+     * Permanently deletes the account and all of its data.
+     * Throws [com.lifeos.app.features.profile.domain.model.IncorrectPasswordException] on a wrong password and
+     * [com.lifeos.app.features.profile.domain.model.TooManyAttemptsException] when rate limited.
+     */
+    suspend fun deleteAccount(password: String)
 }

@@ -10,7 +10,6 @@ internal object ProfileStrings {
     // Header — profile.png "Bahar Toslak" + avatar
     const val AVATAR_CONTENT_DESCRIPTION = "Profil fotoğrafı"
     const val EDIT_PROFILE_ACTION = "Profili Düzenle"
-    const val EDIT_PROFILE_COMING_SOON = "Profil düzenleme özelliği yakında kullanıma sunulacak."
     const val FALLBACK_NAME = "Kullanıcı"
     const val FALLBACK_EMAIL = "E-posta bulunamadı"
 
@@ -60,6 +59,32 @@ internal object ProfileStrings {
     const val LOGOUT_CONFIRMATION_DISMISS = "Vazgeç"
     const val LOGOUT_IN_PROGRESS = "Çıkış yapılıyor..."
     const val LOGOUT_ERROR_MESSAGE = "Çıkış yapılamadı. Lütfen tekrar deneyin."
+
+    // Edit name dialog
+    const val EDIT_NAME_TITLE = "Adını düzenle"
+    const val EDIT_NAME_LABEL = "Ad Soyad"
+    const val EDIT_NAME_SAVE = "Kaydet"
+    const val EDIT_NAME_SAVING = "Kaydediliyor..."
+    const val EDIT_NAME_DISMISS = "Vazgeç"
+    const val EDIT_NAME_EMPTY_ERROR = "Ad soyad gerekli."
+    const val EDIT_NAME_TOO_SHORT_ERROR = "Ad soyad en az 2 karakter olmalı."
+    const val EDIT_NAME_TOO_LONG_ERROR = "Ad soyad en fazla 100 karakter olabilir."
+    const val EDIT_NAME_ERROR = "Ad güncellenemedi. Bağlantını kontrol edip tekrar dene."
+    const val EDIT_NAME_SUCCESS = "Adın güncellendi."
+
+    // Delete account
+    const val DELETE_ACCOUNT_ACTION = "Hesabı Sil"
+    const val DELETE_ACCOUNT_TITLE = "Hesabı sil"
+    const val DELETE_ACCOUNT_WARNING = "Bu işlem geri alınamaz, tüm görevlerin ve seyahatlerin silinir."
+    const val DELETE_ACCOUNT_PASSWORD_PROMPT = "Devam etmek için şifreni gir."
+    const val DELETE_ACCOUNT_PASSWORD_LABEL = "Şifre"
+    const val DELETE_ACCOUNT_CONFIRM = "Hesabı kalıcı olarak sil"
+    const val DELETE_ACCOUNT_IN_PROGRESS = "Siliniyor..."
+    const val DELETE_ACCOUNT_DISMISS = "Vazgeç"
+    const val DELETE_ACCOUNT_PASSWORD_REQUIRED = "Şifre gerekli."
+    const val DELETE_ACCOUNT_WRONG_PASSWORD = "Şifre yanlış. Hesabın silinmedi."
+    const val DELETE_ACCOUNT_TOO_MANY_ATTEMPTS = "Çok fazla deneme, biraz sonra tekrar dene."
+    const val DELETE_ACCOUNT_ERROR = "Hesap silinemedi. Bağlantını kontrol edip tekrar dene."
 
     // Screen states
     const val LOAD_ERROR_MESSAGE = "Profil yüklenemedi. Lütfen tekrar deneyin."

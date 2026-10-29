@@ -106,8 +106,16 @@ class AuthRepositoryImpl(
             // stuck signed-in-but-broken because the backend was unreachable.
             runCatching { remoteDataSource.logout(session.accessToken, session.refreshToken) }
         }
+        clearLocalSession()
+    }
+
+    override suspend fun clearLocalSession() {
         tokenLocalDataSource.clearSession()
         bearerTokenCache.clear()
+    }
+
+    override suspend fun updateSessionDisplayName(fullName: String) {
+        tokenLocalDataSource.updateFullName(fullName)
     }
 
     /**
