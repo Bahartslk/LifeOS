@@ -21,6 +21,10 @@ class AuthTokenLocalDataSource(private val preferencesStorage: PreferencesStorag
         preferencesStorage.putString(KEY_USER_FULL_NAME, session.user.fullName)
     }
 
+    suspend fun updateFullName(fullName: String) {
+        preferencesStorage.putString(KEY_USER_FULL_NAME, fullName)
+    }
+
     suspend fun getSession(): AuthSession? {
         val accessToken = preferencesStorage.observeString(KEY_ACCESS_TOKEN).first()
         val refreshToken = preferencesStorage.observeString(KEY_REFRESH_TOKEN).first()

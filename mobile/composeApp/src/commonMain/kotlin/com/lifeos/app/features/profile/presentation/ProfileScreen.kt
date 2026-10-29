@@ -20,6 +20,8 @@ import com.lifeos.app.core.designsystem.theme.LifeOSSpacing
 import com.lifeos.app.core.designsystem.theme.LifeOSTheme
 import com.lifeos.app.core.presentation.CollectActions
 import com.lifeos.app.core.storage.ThemeMode
+import com.lifeos.app.features.profile.presentation.dialogs.DeleteAccountDialog
+import com.lifeos.app.features.profile.presentation.dialogs.EditNameDialog
 import com.lifeos.app.features.profile.presentation.sections.AboutSection
 import com.lifeos.app.features.profile.presentation.sections.AccountSection
 import com.lifeos.app.features.profile.presentation.sections.NotificationsSection
@@ -33,9 +35,8 @@ import org.koin.compose.viewmodel.koinViewModel
  * Stateful entry point wired into `core/navigation/MainNavGraph.kt` —
  * collects [ProfileViewModel] and forwards its one-shot [ProfileAction]s to
  * a snackbar, per the same Route/Screen split every other feature follows.
- * No navigation callbacks: every action on this screen is either a
- * "coming soon" message or the real, self-contained theme selector — none
- * of them navigate anywhere else, per this sprint's scope.
+ * [onLoggedOut] runs after a logout or an account deletion; every other
+ * action stays on this screen.
  */
 @Composable
 fun ProfileRoute(
@@ -101,6 +102,24 @@ private fun ProfileScreen(
             onDismiss = { onEvent(ProfileEvent.LogoutDismissed) },
         )
     }
+
+    uiState.editName?.let { dialog ->
+        EditNameDialog(
+            state = dialog,
+            onNameChange = { onEvent(ProfileEvent.EditNameChanged(it)) },
+            onSave = { onEvent(ProfileEvent.EditNameSaved) },
+            onDismiss = { onEvent(ProfileEvent.EditNameDismissed) },
+        )
+    }
+
+    uiState.deleteAccount?.let { dialog ->
+        DeleteAccountDialog(
+            state = dialog,
+            onPasswordChange = { onEvent(ProfileEvent.DeletePasswordChanged(it)) },
+            onConfirm = { onEvent(ProfileEvent.DeleteAccountConfirmed) },
+            onDismiss = { onEvent(ProfileEvent.DeleteAccountDismissed) },
+        )
+    }
 }
 
 @Composable
@@ -152,6 +171,7 @@ private fun ProfileContent(
             SessionSection(
                 isLoggingOut = uiState.isLoggingOut,
                 onLogoutClick = { onEvent(ProfileEvent.LogoutClicked) },
+                onDeleteAccountClick = { onEvent(ProfileEvent.DeleteAccountClicked) },
             )
         }
     }

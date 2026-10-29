@@ -22,5 +22,12 @@ interface AuthRepository {
     /** The persisted session from a previous app run, if any — used by Splash. */
     suspend fun getSession(): AuthSession?
 
+    /** Signs out: revokes the session on the backend (best effort), then clears it on the device. */
     suspend fun clearSession()
+
+    /** Clears the session on the device only, for when the backend has already ended it (e.g. the account was deleted). */
+    suspend fun clearLocalSession()
+
+    /** Keeps the stored session's name in step after the user renames themselves. */
+    suspend fun updateSessionDisplayName(fullName: String)
 }

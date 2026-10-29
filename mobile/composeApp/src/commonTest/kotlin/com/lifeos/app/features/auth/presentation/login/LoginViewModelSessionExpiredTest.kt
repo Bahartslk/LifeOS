@@ -3,7 +3,7 @@ package com.lifeos.app.features.auth.presentation.login
 import com.lifeos.app.features.auth.data.SessionExpiryRepositoryImpl
 import com.lifeos.app.features.auth.domain.model.AuthSession
 import com.lifeos.app.features.auth.domain.repository.AuthRepository
-import com.lifeos.app.features.auth.domain.usecase.ConsumeSessionExpiredNoticeUseCase
+import com.lifeos.app.features.auth.domain.usecase.ConsumeSignInNoticeUseCase
 import com.lifeos.app.features.auth.domain.usecase.LoginUseCase
 import com.lifeos.app.features.auth.presentation.AuthStrings
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +47,17 @@ class LoginViewModelSessionExpiredTest {
     }
 
     @Test
+    fun afterAccountDeletion_showsTheDeletedMessageOnce() = runTest {
+        sessionExpiry.markAccountDeleted()
+
+        val first = actionsOf(createViewModel())
+        val second = actionsOf(createViewModel())
+
+        assertEquals(listOf<LoginAction>(LoginAction.ShowMessage(AuthStrings.ACCOUNT_DELETED_MESSAGE)), first)
+        assertTrue(second.isEmpty())
+    }
+
+    @Test
     fun normalSignIn_showsNoMessage() = runTest {
         assertTrue(actionsOf(createViewModel()).isEmpty())
     }
@@ -59,7 +70,7 @@ class LoginViewModelSessionExpiredTest {
 
     private fun createViewModel() = LoginViewModel(
         login = LoginUseCase(UnusedAuthRepository),
-        consumeSessionExpiredNotice = ConsumeSessionExpiredNoticeUseCase(sessionExpiry),
+        consumeSignInNotice = ConsumeSignInNoticeUseCase(sessionExpiry),
     )
 
     private object UnusedAuthRepository : AuthRepository {
@@ -68,5 +79,7 @@ class LoginViewModelSessionExpiredTest {
         override suspend fun requestPasswordReset(email: String): Result<Unit> = error("unused")
         override suspend fun getSession(): AuthSession? = error("unused")
         override suspend fun clearSession() = error("unused")
+        override suspend fun clearLocalSession() = error("unused")
+        override suspend fun updateSessionDisplayName(fullName: String) = error("unused")
     }
 }

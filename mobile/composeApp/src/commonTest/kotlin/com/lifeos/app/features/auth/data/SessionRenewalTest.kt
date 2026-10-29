@@ -6,6 +6,7 @@ import com.lifeos.app.features.auth.data.local.AuthTokenLocalDataSource
 import com.lifeos.app.features.auth.data.remote.AuthRemoteDataSource
 import com.lifeos.app.features.auth.domain.model.AuthSession
 import com.lifeos.app.features.auth.domain.model.AuthUser
+import com.lifeos.app.features.auth.domain.model.SignInNotice
 import com.lifeos.app.testing.InMemoryPreferencesDataStore
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -82,7 +83,7 @@ class SessionRenewalTest {
         assertEquals("access-new", saved?.accessToken)
         assertEquals("refresh-new", saved?.refreshToken)
         assertTrue(expiries.isEmpty())
-        assertFalse(sessionExpiry.consumeSessionExpiredNotice())
+        assertNull(sessionExpiry.consumeSignInNotice())
     }
 
     @Test
@@ -103,7 +104,7 @@ class SessionRenewalTest {
         assertEquals(HttpStatusCode.Unauthorized, status)
         assertNull(tokenLocalDataSource.getSession())
         expired.await()
-        assertTrue(sessionExpiry.consumeSessionExpiredNotice())
+        assertEquals(SignInNotice.SESSION_EXPIRED, sessionExpiry.consumeSignInNotice())
     }
 
     @Test
@@ -115,7 +116,7 @@ class SessionRenewalTest {
 
         assertEquals(HttpStatusCode.Unauthorized, first)
         assertEquals("refresh-old", tokenLocalDataSource.getSession()?.refreshToken)
-        assertFalse(sessionExpiry.consumeSessionExpiredNotice())
+        assertNull(sessionExpiry.consumeSignInNotice())
 
         // The network is back: the next request renews and succeeds.
         refreshHandler = { respondJson("""{"data":{"accessToken":"access-new","refreshToken":"refresh-new"}}""") }
@@ -135,7 +136,7 @@ class SessionRenewalTest {
         client.get("https://api.test/planner/dashboard")
 
         assertEquals("refresh-old", tokenLocalDataSource.getSession()?.refreshToken)
-        assertFalse(sessionExpiry.consumeSessionExpiredNotice())
+        assertNull(sessionExpiry.consumeSignInNotice())
     }
 
     private fun session(accessToken: String, refreshToken: String) = AuthSession(

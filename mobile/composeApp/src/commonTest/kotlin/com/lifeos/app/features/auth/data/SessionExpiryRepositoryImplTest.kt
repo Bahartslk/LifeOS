@@ -1,12 +1,12 @@
 package com.lifeos.app.features.auth.data
 
+import com.lifeos.app.features.auth.domain.model.SignInNotice
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.test.Test
-import kotlin.test.assertFalse
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class SessionExpiryRepositoryImplTest {
 
@@ -14,12 +14,22 @@ class SessionExpiryRepositoryImplTest {
 
     @Test
     fun notice_isConsumedOnce() {
-        assertFalse(repository.consumeSessionExpiredNotice())
+        assertNull(repository.consumeSignInNotice())
 
         repository.markSessionExpired()
 
-        assertTrue(repository.consumeSessionExpiredNotice())
-        assertFalse(repository.consumeSessionExpiredNotice())
+        assertEquals(SignInNotice.SESSION_EXPIRED, repository.consumeSignInNotice())
+        assertNull(repository.consumeSignInNotice())
+    }
+
+    @Test
+    fun accountDeleted_leavesItsOwnNotice_withoutAnExpiryEvent() = runTest {
+        repository.markAccountDeleted()
+
+        // The deletion flow navigates itself, so the session guard must not fire too.
+        assertNull(withTimeoutOrNull(100) { repository.observeSessionExpired().first() })
+        assertEquals(SignInNotice.ACCOUNT_DELETED, repository.consumeSignInNotice())
+        assertNull(repository.consumeSignInNotice())
     }
 
     @Test

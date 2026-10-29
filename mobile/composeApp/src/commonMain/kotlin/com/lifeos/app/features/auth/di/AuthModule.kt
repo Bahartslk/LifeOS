@@ -5,7 +5,7 @@ import com.lifeos.app.core.network.HttpClientFactory
 import com.lifeos.app.features.auth.data.AuthTokenProviderImpl
 import com.lifeos.app.features.auth.data.SessionExpiryRepositoryImpl
 import com.lifeos.app.features.auth.domain.repository.SessionExpiryRepository
-import com.lifeos.app.features.auth.domain.usecase.ConsumeSessionExpiredNoticeUseCase
+import com.lifeos.app.features.auth.domain.usecase.ConsumeSignInNoticeUseCase
 import com.lifeos.app.features.auth.domain.usecase.ObserveSessionExpiredUseCase
 import com.lifeos.app.features.auth.presentation.session.SessionGuardViewModel
 import com.lifeos.app.features.auth.data.local.AuthTokenLocalDataSource
@@ -82,12 +82,12 @@ val authModule: Module = module {
     factory { ObserveOnboardingCompletedUseCase(onboardingRepository = get()) }
     factory { CompleteOnboardingUseCase(onboardingRepository = get()) }
     factory { ObserveSessionExpiredUseCase(sessionExpiryRepository = get()) }
-    factory { ConsumeSessionExpiredNoticeUseCase(sessionExpiryRepository = get()) }
+    factory { ConsumeSignInNoticeUseCase(sessionExpiryRepository = get()) }
 
     // ViewModels
     viewModel { SplashViewModel(getSession = get(), observeOnboardingCompleted = get()) }
     viewModel { OnboardingViewModel(completeOnboarding = get()) }
-    viewModel { LoginViewModel(login = get(), consumeSessionExpiredNotice = get()) }
+    viewModel { LoginViewModel(login = get(), consumeSignInNotice = get()) }
     viewModel { SessionGuardViewModel(observeSessionExpired = get()) }
     viewModel { RegisterViewModel(register = get()) }
     viewModel { ForgotPasswordViewModel(requestPasswordReset = get()) }
