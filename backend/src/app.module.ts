@@ -15,6 +15,7 @@ import { TravelModule } from './modules/travel/travel.module';
 import { AiModule } from './modules/ai/ai.module';
 import { DailyBriefModule } from './modules/daily-brief/daily-brief.module';
 import { ProactiveAssistantModule } from './modules/proactive-assistant/proactive-assistant.module';
+import { AssistantChatModule } from './modules/assistant-chat/assistant-chat.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -37,6 +38,8 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
  * anything from it). `ProactiveAssistantModule` (Sprint 22) is the
  * platform's first proactive (not reactive) AI feature — same reasoning,
  * same one-directional `AiModule`-only import, no circular dependency.
+ * `AssistantChatModule` (`POST /ai/chat`) imports `AiModule` and
+ * `UsersModule` the same one-directional way.
  * `NotificationsModule` remains an empty registration
  * with no controller or service. The `ProfileModule` shell registered
  * since Sprint 13.0 was removed in Sprint 17.5 (Architecture Audit) once
@@ -63,6 +66,7 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
     AiModule,
     DailyBriefModule,
     ProactiveAssistantModule,
+    AssistantChatModule,
     NotificationsModule,
   ],
   providers: [

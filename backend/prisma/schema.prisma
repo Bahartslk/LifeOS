@@ -116,8 +116,30 @@ model User {
   taskLists               TaskList[]
   tasks                   Task[]
   trips                   Trip[]
+  aiChatUsage             AiChatUsage[]
 
   @@map("users")
+}
+
+/// How many AI chat messages a user sent on one day (docs/09-ai-features.md
+/// #ai-chat), for the per-user daily limit (`AI_CHAT_DAILY_LIMIT`). One row
+/// per user per day; `usageDate` is the calendar day in the user's own
+/// `timezone`, so the limit resets at the user's midnight, not UTC's. The
+/// count is reserved with a single atomic upsert before the AI call (see
+/// `ChatUsageRepository`), so concurrent messages can't exceed the limit.
+/// No message content is stored. Deleted with the user.
+model AiChatUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  usageDate    DateTime @map("usage_date") @db.Date
+  messageCount Int      @default(0) @map("message_count")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Also serves the (user, day) lookup; no separate index needed.
+  @@unique([userId, usageDate])
+  @@map("ai_chat_usage")
 }
 
 /// Role-based access control (docs/15-api-design.md#authorization). `USER`

@@ -28,6 +28,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const httpExceptionResponse = isHttpException ? exception.getResponse() : null;
     const message = this.extractMessage(httpExceptionResponse, exception);
+    const code = this.extractCode(httpExceptionResponse);
 
     if (!isHttpException) {
       this.logger.error(exception instanceof Error ? exception.stack : exception);
@@ -36,10 +37,24 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(statusCode).json({
       statusCode,
       error: HttpStatus[statusCode] ?? 'Internal Server Error',
+      // Optional machine-readable reason, only when an exception sets one
+      // (e.g. `CHAT_DAILY_LIMIT_REACHED`), so a client can tell two errors
+      // with the same status apart.
+      ...(code && { code }),
       message,
       path: request.url,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  private extractCode(httpExceptionResponse: string | object | null): string | undefined {
+    if (httpExceptionResponse && typeof httpExceptionResponse === 'object') {
+      const maybeCode = (httpExceptionResponse as { code?: unknown }).code;
+      if (typeof maybeCode === 'string' && maybeCode.length > 0) {
+        return maybeCode;
+      }
+    }
+    return undefined;
   }
 
   private extractMessage(
