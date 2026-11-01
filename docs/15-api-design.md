@@ -250,6 +250,20 @@ Implemented in Sprint 15.0 (Planner Backend) under `/planner/tasks`/`/planner/da
 | PATCH | `/api/v1/planner/tasks/:id/incomplete` | FR-PLANNER-03 | Yes |
 | GET | `/api/v1/planner/dashboard` | FR-PLANNER-04, FR-HOME-01 | Yes |
 
+**Meetings and reminders (week 4).** A meeting is a task with `type: "MEETING"`, so it appears everywhere tasks do (agenda, calendar, dashboard, AI context). Every task has four extra fields, in requests and in every task response:
+
+- `type`: `TASK` (default) or `MEETING`.
+- `durationMinutes`: 5–1440, or `null`.
+- `location`: up to 200 characters, or `null`.
+- `reminderMinutesBefore`: 0–1440 (0 = at the time), or `null` for no reminder. It drives the push reminder (see the week 4 notifications work).
+
+Rules:
+
+- A `MEETING` needs a `dueTime` (`400` "A meeting needs a dueTime."), and so does a reminder (`400` "A reminder needs a dueTime."). On `PATCH`, the rules are checked against the task as it will be saved, so a request may send only `type` for a task that already has a time.
+- A new meeting without `reminderMinutesBefore` gets a reminder **10 minutes** before; send `null` to have none. A new plain task gets no reminder unless one is sent.
+- On `PATCH`, an explicit `null` clears `durationMinutes`, `location` or `reminderMinutesBefore`.
+- All times are in the user's `timezone`, like `dueDate`/`dueTime`. Tasks created by other features (Travel) are plain tasks without a reminder.
+
 **`GET /api/v1/planner/dashboard?date=YYYY-MM-DD`.** `date` is optional: the caller's own local "today" (the mobile client sends its device date). If it is omitted, the server uses today in the caller's `User.timezone`, never its own UTC date, which in Turkey is still "yesterday" between 00:00 and 03:00. An invalid format or impossible calendar date returns `400`. Response lists, all relative to that "today":
 
 - `overdueTasks`: unfinished (`TODO`/`IN_PROGRESS`) tasks due before today, ordered by due date, due time and creation time. This is date-based only: a task due today is never overdue, even after its due time.
