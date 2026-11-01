@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FlightTakeoff
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Work
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.lifeos.app.core.date.AppDateFormatter
 import com.lifeos.app.core.date.RelativeDateFormatter
 import com.lifeos.app.core.designsystem.components.AppCard
 import com.lifeos.app.core.designsystem.components.AppIcon
@@ -83,7 +85,7 @@ fun TaskCard(
         Row(verticalAlignment = Alignment.Top) {
             IconButton(onClick = onToggle) {
                 AppIcon(
-                    imageVector = if (isCompleted) Icons.Filled.CheckCircle else task.category.toIcon(),
+                    imageVector = if (isCompleted) Icons.Filled.CheckCircle else task.displayIcon(),
                     contentDescription = PlannerStrings.TASK_TOGGLE_CONTENT_DESCRIPTION,
                     tint = if (isCompleted) LifeOSTealBase else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -100,6 +102,9 @@ fun TaskCard(
                     style = MaterialTheme.typography.titleSmall,
                     textDecoration = if (isCompleted) TextDecoration.LineThrough else null,
                 )
+                if (task.isMeeting) {
+                    MeetingInfoLine(task = task)
+                }
                 Spacer(modifier = Modifier.height(LifeOSSpacing.xs))
                 TaskCardSubtitle(task = task, isCompleted = isCompleted)
             }
@@ -130,6 +135,9 @@ private fun TaskCardSubtitle(task: Task, isCompleted: Boolean) {
     }
 }
 
+/** A meeting's group icon, otherwise its category's; every task row uses this so meetings stand out the same way everywhere. */
+internal fun Task.displayIcon(): ImageVector = if (isMeeting) Icons.Filled.Groups else category.toIcon()
+
 /** `internal` (not `private`): `UpcomingTasksSection.kt`'s `UpcomingTaskRow` needs this exact same mapping. */
 internal fun TaskCategory.toIcon(): ImageVector = when (this) {
     TaskCategory.WORK -> Icons.Filled.Work
@@ -149,9 +157,12 @@ internal fun TaskCategory.toIcon(): ImageVector = when (this) {
  * inside [RelativeDateFormatter] itself, which has no [Task] knowledge.
  */
 internal fun Task.dueDateDisplayLabel(): String {
-    val base = RelativeDateFormatter.format(dueDate.date, dueDate.time)
+    val base = RelativeDateFormatter.format(dueDate.date, dueDate.time) + endTimeSuffix()
     return if (status == TaskStatus.IN_PROGRESS) "$base – ${PlannerStrings.DUE_DATE_NOW_SUFFIX}" else base
 }
+
+/** "–11:00" after the start time when the end is known (time + duration), giving "10:00–11:00". */
+private fun Task.endTimeSuffix(): String = endTime?.let { "–${AppDateFormatter.toTimeLabel(it)}" }.orEmpty()
 
 /**
  * "Gecikti · 28 Eylül" for a task in the dashboard's overdue list. Uses the
@@ -176,7 +187,6 @@ private fun TaskCardCompletedPreview() {
                 status = TaskStatus.DONE,
                 source = TaskSource.PLANNER,
                 tags = emptyList(),
-                hasReminder = false,
                 createdAt = LocalDate(2024, 10, 20),
             ),
             onToggle = {},
@@ -200,7 +210,7 @@ private fun TaskCardActivePreview() {
                 status = TaskStatus.IN_PROGRESS,
                 source = TaskSource.PLANNER,
                 tags = listOf("Ayşe", "Mehmet", "Zeynep", "Can"),
-                hasReminder = true,
+                reminderMinutesBefore = 10,
                 createdAt = LocalDate(2024, 10, 21),
             ),
             onToggle = {},
@@ -224,7 +234,7 @@ private fun TaskCardHighPriorityPreview() {
                 status = TaskStatus.TODO,
                 source = TaskSource.PLANNER,
                 tags = emptyList(),
-                hasReminder = true,
+                reminderMinutesBefore = 10,
                 createdAt = LocalDate(2024, 10, 18),
             ),
             onToggle = {},

@@ -11,6 +11,7 @@ import com.lifeos.app.features.planner.domain.model.TaskNotFoundException
 import com.lifeos.app.features.planner.domain.model.TaskPriority
 import com.lifeos.app.features.planner.domain.model.TaskSource
 import com.lifeos.app.features.planner.domain.model.TaskStatus
+import com.lifeos.app.features.planner.domain.model.TaskType
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -133,9 +134,11 @@ class PlannerRepositoryImplTest {
                 priority = TaskPriority.HIGH,
                 category = TaskCategory.WORK,
                 tags = listOf("iş"),
-                hasReminder = true,
-                estimatedDurationLabel = "45 dakika",
                 notes = "not",
+                type = TaskType.MEETING,
+                durationMinutes = 30,
+                location = "  Ofis  ",
+                reminderMinutesBefore = 10,
             ),
         ).getOrThrow()
 
@@ -148,17 +151,65 @@ class PlannerRepositoryImplTest {
         assertEquals("09:05", body["dueTime"]?.jsonPrimitive?.content)
         assertEquals("HIGH", body["priority"]?.jsonPrimitive?.content)
         assertEquals("WORK", body["category"]?.jsonPrimitive?.content)
-        // Current behavior: tags, reminder, estimated duration and notes are not sent.
-        assertEquals(setOf("title", "description", "dueDate", "dueTime", "priority", "category", "taskListId"), body.keys)
+        assertEquals("MEETING", body["type"]?.jsonPrimitive?.content)
+        assertEquals("30", body["durationMinutes"]?.jsonPrimitive?.content)
+        assertEquals("Ofis", body["location"]?.jsonPrimitive?.content)
+        assertEquals("10", body["reminderMinutesBefore"]?.jsonPrimitive?.content)
+        // Tags and notes have no backend column, so they are not sent.
+        assertEquals(
+            setOf(
+                "title", "description", "dueDate", "dueTime", "priority", "category", "taskListId",
+                "type", "durationMinutes", "location", "reminderMinutesBefore",
+            ),
+            body.keys,
+        )
 
         assertEquals(TASK_ID, task.id)
         assertEquals(TaskDueDate(LocalDate(2026, 10, 3), LocalTime(9, 5)), task.dueDate)
         assertEquals(TaskPriority.HIGH, task.priority)
         assertEquals(TaskCategory.WORK, task.category)
-        // Current behavior: the returned task echoes the request's client-only fields.
+        // The returned task echoes the request's client-only tags.
         assertEquals(listOf("iş"), task.tags)
-        assertTrue(task.hasReminder)
-        assertEquals("45 dakika", task.estimatedDurationLabel)
+    }
+
+    @Test
+    fun createTask_sendsAnExplicitNullReminder_soTheBackendDoesNotApplyItsMeetingDefault() = runTest {
+        routes["POST planner/tasks"] = {
+            respondJson("""{"data":${taskJson(id = TASK_ID)}}""", HttpStatusCode.Created)
+        }
+
+        repository.createTask(request(time = LocalTime(9, 0)).copy(type = TaskType.MEETING)).getOrThrow()
+
+        val body = Json.parseToJsonElement(recordedRequests.single().bodyText()).jsonObject
+        assertEquals("null", body["reminderMinutesBefore"].toString())
+    }
+
+    @Test
+    fun taskResponse_mapsTheMeetingFields() = runTest {
+        routes["GET planner/tasks/$TASK_ID"] = {
+            respondJson(
+                """{"data":${taskJson(id = TASK_ID, dueTime = "\"10:00\"", extra = MEETING_FIELDS)}}""",
+            )
+        }
+
+        val task = repository.getTaskDetail(TASK_ID).getOrThrow().task
+
+        assertEquals(TaskType.MEETING, task.type)
+        assertEquals(60, task.durationMinutes)
+        assertEquals("Ofis", task.location)
+        assertEquals(10, task.reminderMinutesBefore)
+        assertEquals(LocalTime(11, 0), task.endTime)
+    }
+
+    @Test
+    fun taskResponse_withoutMeetingFields_readsAsAPlainTask() = runTest {
+        routes["GET planner/tasks/$TASK_ID"] = { respondJson("""{"data":${taskJson(id = TASK_ID)}}""") }
+
+        val task = repository.getTaskDetail(TASK_ID).getOrThrow().task
+
+        assertEquals(TaskType.TASK, task.type)
+        assertNull(task.reminderMinutesBefore)
+        assertNull(task.endTime)
     }
 
     @Test
@@ -571,8 +622,6 @@ class PlannerRepositoryImplTest {
         priority = TaskPriority.MEDIUM,
         category = TaskCategory.PERSONAL,
         tags = emptyList(),
-        hasReminder = false,
-        estimatedDurationLabel = null,
         notes = null,
     )
 
@@ -586,9 +635,10 @@ class PlannerRepositoryImplTest {
         category: String = "PERSONAL",
         status: String = "TODO",
         source: String = "PLANNER",
+        extra: String = "",
     ) = """{"id":"$id","title":"$title","description":$description,"dueDate":"$dueDate","dueTime":$dueTime,""" +
         """"priority":"$priority","category":"$category","status":"$status","source":"$source","taskListId":null,""" +
-        """"createdAt":"2026-10-02T11:35:30.588Z","updatedAt":"2026-10-02T11:35:30.588Z"}"""
+        """"createdAt":"2026-10-02T11:35:30.588Z","updatedAt":"2026-10-02T11:35:30.588Z"$extra}"""
 
     private fun pageJson(tasks: List<String>, nextCursor: String? = null, hasMore: Boolean = false) =
         """{"data":[${tasks.joinToString(",")}],"meta":{"nextCursor":${nextCursor?.let { "\"$it\"" } ?: "null"},"limit":100,"hasMore":$hasMore}}"""
@@ -618,6 +668,7 @@ class PlannerRepositoryImplTest {
         const val ACCESS_TOKEN = "test-access-token"
         const val TASK_ID = "11111111-1111-1111-1111-111111111111"
         const val OTHER_TASK_ID = "22222222-2222-2222-2222-222222222222"
+        const val MEETING_FIELDS = ""","type":"MEETING","durationMinutes":60,"location":"Ofis","reminderMinutesBefore":10"""
         val FIXED_TODAY = LocalDate(2026, 10, 2)
         const val EMPTY_DASHBOARD_JSON =
             """{"data":{"todayTasks":[],"upcomingTasks":[],"completedCount":0,"pendingCount":0,"progressPercentage":0}}"""

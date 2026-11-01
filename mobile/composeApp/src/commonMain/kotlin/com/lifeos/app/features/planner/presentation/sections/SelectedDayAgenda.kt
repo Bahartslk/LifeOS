@@ -98,7 +98,7 @@ private fun SelectedDayAgendaWithTasksPreview() {
                     status = TaskStatus.TODO,
                     source = TaskSource.PLANNER,
                     tags = emptyList(),
-                    hasReminder = true,
+                    reminderMinutesBefore = 10,
                     createdAt = LocalDate(2024, 10, 18),
                 ),
                 Task(
@@ -111,7 +111,6 @@ private fun SelectedDayAgendaWithTasksPreview() {
                     status = TaskStatus.DONE,
                     source = TaskSource.PLANNER,
                     tags = emptyList(),
-                    hasReminder = false,
                     createdAt = LocalDate(2024, 10, 20),
                 ),
             ),

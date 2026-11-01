@@ -50,7 +50,6 @@ class FakePlannerDataSource {
             status = TaskStatus.DONE,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = false,
             createdAt = LocalDate(2024, 10, 20),
         ),
         Task(
@@ -63,7 +62,7 @@ class FakePlannerDataSource {
             status = TaskStatus.IN_PROGRESS,
             source = TaskSource.PLANNER,
             tags = listOf("Ayşe", "Mehmet", "Zeynep", "Can"),
-            hasReminder = true,
+            reminderMinutesBefore = 10,
             createdAt = LocalDate(2024, 10, 21),
         ),
         Task(
@@ -76,7 +75,6 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = false,
             createdAt = LocalDate(2024, 10, 21),
         ),
         Task(
@@ -89,7 +87,7 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = true,
+            reminderMinutesBefore = 10,
             createdAt = LocalDate(2024, 10, 18),
         ),
         Task(
@@ -102,7 +100,7 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = true,
+            reminderMinutesBefore = 10,
             createdAt = LocalDate(2024, 10, 22),
         ),
     )
@@ -119,7 +117,6 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = false,
             createdAt = LocalDate(2024, 10, 15),
         ),
     )
@@ -135,7 +132,7 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.TRAVEL,
             tags = listOf("seyahat"),
-            hasReminder = true,
+            reminderMinutesBefore = 10,
             createdAt = LocalDate(2024, 10, 1),
         ),
         Task(
@@ -148,7 +145,7 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = true,
+            reminderMinutesBefore = 10,
             createdAt = LocalDate(2024, 10, 15),
         ),
         Task(
@@ -161,7 +158,6 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = emptyList(),
-            hasReminder = false,
             createdAt = LocalDate(2024, 10, 19),
         ),
     )
@@ -286,9 +282,11 @@ class FakePlannerDataSource {
             status = TaskStatus.TODO,
             source = TaskSource.PLANNER,
             tags = request.tags,
-            hasReminder = request.hasReminder,
             createdAt = AppToday.date,
-            estimatedDurationLabel = request.estimatedDurationLabel,
+            type = request.type,
+            durationMinutes = request.durationMinutes,
+            location = request.location,
+            reminderMinutesBefore = request.reminderMinutesBefore,
         )
         todayTasks.add(task)
         if (!request.notes.isNullOrBlank()) {

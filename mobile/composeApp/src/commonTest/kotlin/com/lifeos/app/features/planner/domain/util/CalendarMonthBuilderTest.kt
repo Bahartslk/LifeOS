@@ -153,7 +153,6 @@ class CalendarMonthBuilderTest {
         status = TaskStatus.TODO,
         source = TaskSource.PLANNER,
         tags = emptyList(),
-        hasReminder = false,
         createdAt = LocalDate(2026, 10, 1),
     )
 }

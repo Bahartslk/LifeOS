@@ -62,7 +62,7 @@ fun AgendaTaskCard(
                 contentAlignment = Alignment.Center,
             ) {
                 AppIcon(
-                    imageVector = task.category.toIcon(),
+                    imageVector = task.displayIcon(),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     size = LifeOSSize.iconSmall,
@@ -80,6 +80,9 @@ fun AgendaTaskCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (task.isMeeting) {
+                    MeetingInfoLine(task = task)
+                }
             }
             if (!isCompleted && task.priority == TaskPriority.HIGH) {
                 Spacer(modifier = Modifier.width(LifeOSSpacing.sm))
@@ -108,7 +111,7 @@ private fun AgendaTaskCardPreview() {
                 status = TaskStatus.TODO,
                 source = TaskSource.PLANNER,
                 tags = emptyList(),
-                hasReminder = true,
+                reminderMinutesBefore = 10,
                 createdAt = LocalDate(2024, 10, 18),
             ),
             onClick = {},
@@ -131,7 +134,6 @@ private fun AgendaTaskCardCompletedPreview() {
                 status = TaskStatus.DONE,
                 source = TaskSource.PLANNER,
                 tags = emptyList(),
-                hasReminder = false,
                 createdAt = LocalDate(2024, 10, 20),
             ),
             onClick = {},

@@ -14,6 +14,7 @@ import com.lifeos.app.features.planner.domain.model.TaskDueDate
 import com.lifeos.app.features.planner.domain.model.TaskPriority
 import com.lifeos.app.features.planner.domain.model.TaskSource
 import com.lifeos.app.features.planner.domain.model.TaskStatus
+import com.lifeos.app.features.planner.domain.model.TaskType
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -22,11 +23,10 @@ import kotlinx.datetime.LocalTime
  * and the same convention `features/auth/data/mapper/AuthMappers.kt` already
  * established.
  *
- * `category` round-trips through a real backend column, the same as
- * `priority`/`status`/`source`. The backend's `Task` still has no `tags`/
- * `hasReminder`/`estimatedDurationLabel` columns (mobile-only enrichments —
- * see [Task]'s own KDoc); [toDomain] fills those with neutral, non-fake
- * defaults. No AI content or activity history is synthesized anywhere in
+ * `category` and the meeting fields round-trip through real backend
+ * columns, the same as `priority`/`status`/`source`. The backend's `Task`
+ * still has no `tags` column (a mobile-only enrichment — see [Task]'s own
+ * KDoc); [toDomain] fills it with a neutral, non-fake default. No AI content or activity history is synthesized anywhere in
  * this file — per this iteration's explicit instruction, an absent backend
  * value stays absent (empty list / blank string), never a made-up
  * placeholder.
@@ -44,28 +44,24 @@ fun TaskDto.toDomain(): Task = Task(
     status = TaskStatus.valueOf(status),
     source = TaskSource.valueOf(source),
     tags = emptyList(),
-    hasReminder = false,
     // createdAt is a full ISO-8601 instant on the wire; Task.createdAt is a
     // bare LocalDate, so only the date component is kept.
     createdAt = LocalDate.parse(createdAt.substring(0, 10)),
-    estimatedDurationLabel = null,
+    // An unknown future type reads as a plain task rather than failing the whole list.
+    type = TaskType.entries.firstOrNull { it.name == type } ?: TaskType.TASK,
+    durationMinutes = durationMinutes,
+    location = location,
+    reminderMinutesBefore = reminderMinutesBefore,
 )
 
 /**
- * [request]'s remaining form-only fields ([CreateTaskRequest.tags]/
- * [hasReminder]/[estimatedDurationLabel] — [CreateTaskRequest.category] is
- * no longer among them, since the backend now persists and returns it like
- * any other column) have nowhere to persist server-side — spliced back onto
- * the freshly-created [Task] so it looks exactly as entered for the rest of
- * this session. A later reload from the backend (dashboard refresh, app
+ * [request]'s remaining form-only field ([CreateTaskRequest.tags]) has
+ * nowhere to persist server-side — spliced back onto the freshly-created
+ * [Task] so it looks exactly as entered for the rest of this session. A later reload from the backend (dashboard refresh, app
  * restart) won't have them anymore, since the server never stored them —
  * approved graceful-degradation behavior, not a bug.
  */
-fun TaskDto.toDomain(request: CreateTaskRequest): Task = toDomain().copy(
-    tags = request.tags,
-    hasReminder = request.hasReminder,
-    estimatedDurationLabel = request.estimatedDurationLabel,
-)
+fun TaskDto.toDomain(request: CreateTaskRequest): Task = toDomain().copy(tags = request.tags)
 
 /** [CreateTaskRequest.notes] is dropped here for the same reason `TaskDetail.notes` is always blank when read back — the backend has nowhere to store it. */
 fun CreateTaskRequest.toDto(): CreateTaskRequestDto = CreateTaskRequestDto(
@@ -76,6 +72,10 @@ fun CreateTaskRequest.toDto(): CreateTaskRequestDto = CreateTaskRequestDto(
     priority = priority.name,
     category = category.name,
     taskListId = null,
+    type = type.name,
+    durationMinutes = durationMinutes,
+    location = location?.trim()?.ifBlank { null },
+    reminderMinutesBefore = reminderMinutesBefore,
 )
 
 /**

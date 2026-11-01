@@ -5,9 +5,13 @@ import kotlinx.serialization.Serializable
 /**
  * `POST /planner/tasks`'s request body — mirrors backend's `CreateTaskDto`
  * exactly. `category` now has a real backend column and is sent like
- * `priority`; `tags`/`hasReminder`/`estimatedDurationLabel`/`notes` still
- * have no backend columns (see this iteration's approved mismatch report),
- * so there is nothing to send for those.
+ * `priority`, and so are the meeting fields (`type`, `durationMinutes`,
+ * `location`, `reminderMinutesBefore`). `tags`/`notes` still have no
+ * backend columns, so there is nothing to send for those.
+ *
+ * `reminderMinutesBefore` is always sent (the shared JSON config encodes
+ * defaults), so `null` reaches the backend as "no reminder" rather than as
+ * "use the meeting default": the form always decides.
  */
 @Serializable
 data class CreateTaskRequestDto(
@@ -18,4 +22,8 @@ data class CreateTaskRequestDto(
     val priority: String,
     val category: String,
     val taskListId: String? = null,
+    val type: String = "TASK",
+    val durationMinutes: Int? = null,
+    val location: String? = null,
+    val reminderMinutesBefore: Int? = null,
 )

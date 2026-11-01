@@ -24,16 +24,22 @@ import com.lifeos.app.core.designsystem.theme.LifeOSTheme
 import com.lifeos.app.core.presentation.CollectActions
 import com.lifeos.app.features.planner.domain.model.TaskCategory
 import com.lifeos.app.features.planner.domain.model.TaskPriority
+import com.lifeos.app.features.planner.domain.model.TaskType
+import kotlinx.datetime.LocalTime
 import com.lifeos.app.features.planner.presentation.sections.CategorySelector
 import com.lifeos.app.features.planner.presentation.sections.DescriptionField
 import com.lifeos.app.features.planner.presentation.sections.DueDateField
-import com.lifeos.app.features.planner.presentation.sections.EstimatedDurationField
+import com.lifeos.app.features.planner.presentation.sections.DurationSection
+import com.lifeos.app.features.planner.presentation.sections.MeetingLocationField
 import com.lifeos.app.features.planner.presentation.sections.PrioritySelector
 import com.lifeos.app.features.planner.presentation.sections.ReminderSection
 import com.lifeos.app.features.planner.presentation.sections.RepeatSection
 import com.lifeos.app.features.planner.presentation.sections.SaveActionsSection
 import com.lifeos.app.features.planner.presentation.sections.TagsSection
+import com.lifeos.app.features.planner.presentation.sections.TaskTimePickerDialog
+import com.lifeos.app.features.planner.presentation.sections.TaskTimeSection
 import com.lifeos.app.features.planner.presentation.sections.TaskTitleField
+import com.lifeos.app.features.planner.presentation.sections.TaskTypeSection
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -112,6 +118,12 @@ private fun CreateTaskScreen(
                 )
             }
             item {
+                TaskTypeSection(
+                    selectedType = uiState.type,
+                    onTypeSelected = { onEvent(CreateTaskEvent.TypeSelected(it)) },
+                )
+            }
+            item {
                 DueDateField(
                     dueDate = uiState.dueDate,
                     onDueDateChanged = { onEvent(CreateTaskEvent.DueDateChanged(it)) },
@@ -119,9 +131,30 @@ private fun CreateTaskScreen(
                 )
             }
             item {
+                TaskTimeSection(
+                    time = uiState.time,
+                    errorMessage = uiState.timeError,
+                    onClick = { onEvent(CreateTaskEvent.TimeFieldClicked) },
+                )
+            }
+            item {
+                DurationSection(
+                    durationMinutes = uiState.durationMinutes,
+                    onDurationSelected = { onEvent(CreateTaskEvent.DurationSelected(it)) },
+                )
+            }
+            if (uiState.type == TaskType.MEETING) {
+                item {
+                    MeetingLocationField(
+                        location = uiState.location,
+                        onLocationChanged = { onEvent(CreateTaskEvent.LocationChanged(it)) },
+                    )
+                }
+            }
+            item {
                 ReminderSection(
-                    hasReminder = uiState.hasReminder,
-                    onReminderToggled = { onEvent(CreateTaskEvent.ReminderToggled(it)) },
+                    reminderMinutesBefore = uiState.reminderMinutesBefore,
+                    onReminderSelected = { onEvent(CreateTaskEvent.ReminderSelected(it)) },
                 )
             }
             item {
@@ -146,12 +179,6 @@ private fun CreateTaskScreen(
                 )
             }
             item {
-                EstimatedDurationField(
-                    estimatedDuration = uiState.estimatedDuration,
-                    onEstimatedDurationChanged = { onEvent(CreateTaskEvent.EstimatedDurationChanged(it)) },
-                )
-            }
-            item {
                 RepeatSection(
                     selectedOption = uiState.repeatOption,
                     onOptionSelected = { onEvent(CreateTaskEvent.RepeatOptionSelected(it)) },
@@ -173,6 +200,15 @@ private fun CreateTaskScreen(
                 )
             }
         }
+    }
+
+    if (uiState.isTimePickerVisible) {
+        TaskTimePickerDialog(
+            initialTime = uiState.time,
+            onConfirm = { onEvent(CreateTaskEvent.TimeSelected(it)) },
+            onClear = { onEvent(CreateTaskEvent.TimeCleared) },
+            onDismiss = { onEvent(CreateTaskEvent.TimePickerDismissed) },
+        )
     }
 }
 
@@ -211,12 +247,15 @@ private fun CreateTaskScreenFilledPreview() {
             uiState = CreateTaskUiState(
                 title = "Sunum hazırlığı",
                 description = "Yönetim kurulu için slaytları tamamla",
-                dueDate = "Yarın, 14:00",
-                hasReminder = true,
+                dueDate = "Yarın",
+                type = TaskType.MEETING,
+                time = LocalTime(14, 0),
+                durationMinutes = 60,
+                location = "Ofis, toplantı odası 2",
+                reminderMinutesBefore = 10,
                 priority = TaskPriority.HIGH,
                 category = TaskCategory.WORK,
                 tags = listOf("yönetim", "sunum"),
-                estimatedDuration = "45 dakika",
                 repeatOption = RepeatOption.WEEKLY,
             ),
             snackbarHostState = remember { SnackbarHostState() },

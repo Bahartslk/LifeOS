@@ -77,7 +77,6 @@ private fun TodayTasksSectionPreview() {
                     status = TaskStatus.DONE,
                     source = TaskSource.PLANNER,
                     tags = emptyList(),
-                    hasReminder = false,
                     createdAt = LocalDate(2024, 10, 20),
                 ),
                 Task(
@@ -90,7 +89,7 @@ private fun TodayTasksSectionPreview() {
                     status = TaskStatus.IN_PROGRESS,
                     source = TaskSource.PLANNER,
                     tags = listOf("Ayşe", "Mehmet", "Zeynep", "Can"),
-                    hasReminder = true,
+                    reminderMinutesBefore = 10,
                     createdAt = LocalDate(2024, 10, 21),
                 ),
             ),

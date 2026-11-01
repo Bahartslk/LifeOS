@@ -2,6 +2,8 @@ package com.lifeos.app.features.planner.presentation
 
 import com.lifeos.app.features.planner.domain.model.TaskCategory
 import com.lifeos.app.features.planner.domain.model.TaskPriority
+import com.lifeos.app.features.planner.domain.model.TaskType
+import kotlinx.datetime.LocalTime
 
 /**
  * "Repeat Option" (Create Task's requirement — explicitly UI only). Lives
@@ -35,31 +37,53 @@ data class CreateTaskUiState(
     val title: String = "",
     val description: String = "",
     val dueDate: String = "",
-    val hasReminder: Boolean = false,
+    val type: TaskType = TaskType.TASK,
+    /** Picked with the time picker; when null, a time typed into [dueDate] ("Yarın, 14:00") is used. */
+    val time: LocalTime? = null,
+    val isTimePickerVisible: Boolean = false,
+    val durationMinutes: Int? = null,
+    val location: String = "",
+    /** Null = no reminder. Becomes 10 when the type switches to a meeting with no reminder chosen. */
+    val reminderMinutesBefore: Int? = null,
     val priority: TaskPriority = TaskPriority.MEDIUM,
     val category: TaskCategory = TaskCategory.PERSONAL,
     val tags: List<String> = emptyList(),
     val tagInput: String = "",
-    val estimatedDuration: String = "",
     val repeatOption: RepeatOption = RepeatOption.NONE,
     val notes: String = "",
     val titleError: String? = null,
     val dueDateError: String? = null,
+    val timeError: String? = null,
     val isSaving: Boolean = false,
 )
+
+/** The duration choices on the form, in minutes (null = not set). */
+val DURATION_OPTIONS: List<Int?> = listOf(null, 15, 30, 45, 60, 90, 120)
+
+/** The reminder choices on the form, in minutes before (null = none, 0 = at the time). */
+val REMINDER_OPTIONS: List<Int?> = listOf(null, 0, 5, 10, 15, 30, 60)
+
+/** A new meeting's reminder (product decision; the backend uses the same default). */
+const val DEFAULT_MEETING_REMINDER_MINUTES = 10
 
 sealed interface CreateTaskEvent {
     data object BackClicked : CreateTaskEvent
     data class TitleChanged(val value: String) : CreateTaskEvent
     data class DescriptionChanged(val value: String) : CreateTaskEvent
     data class DueDateChanged(val value: String) : CreateTaskEvent
-    data class ReminderToggled(val enabled: Boolean) : CreateTaskEvent
+    data class TypeSelected(val type: TaskType) : CreateTaskEvent
+    data object TimeFieldClicked : CreateTaskEvent
+    data class TimeSelected(val time: LocalTime) : CreateTaskEvent
+    data object TimeCleared : CreateTaskEvent
+    data object TimePickerDismissed : CreateTaskEvent
+    data class DurationSelected(val minutes: Int?) : CreateTaskEvent
+    data class LocationChanged(val value: String) : CreateTaskEvent
+    data class ReminderSelected(val minutes: Int?) : CreateTaskEvent
     data class PrioritySelected(val priority: TaskPriority) : CreateTaskEvent
     data class CategorySelected(val category: TaskCategory) : CreateTaskEvent
     data class TagInputChanged(val value: String) : CreateTaskEvent
     data object TagAdded : CreateTaskEvent
     data class TagRemoved(val tag: String) : CreateTaskEvent
-    data class EstimatedDurationChanged(val value: String) : CreateTaskEvent
     data class RepeatOptionSelected(val option: RepeatOption) : CreateTaskEvent
     data class NotesChanged(val value: String) : CreateTaskEvent
     data object SaveClicked : CreateTaskEvent

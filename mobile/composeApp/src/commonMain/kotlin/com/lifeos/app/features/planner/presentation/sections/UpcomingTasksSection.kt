@@ -82,7 +82,7 @@ private fun UpcomingTaskRow(task: Task, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 AppIcon(
-                    imageVector = task.category.toIcon(),
+                    imageVector = task.displayIcon(),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     size = LifeOSSize.iconSmall,
@@ -96,6 +96,9 @@ private fun UpcomingTaskRow(task: Task, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(text = task.title, style = MaterialTheme.typography.titleSmall)
+                if (task.isMeeting) {
+                    MeetingInfoLine(task = task)
+                }
             }
         }
     }
@@ -117,7 +120,7 @@ private fun UpcomingTasksSectionPreview() {
                     status = TaskStatus.TODO,
                     source = TaskSource.TRAVEL,
                     tags = emptyList(),
-                    hasReminder = true,
+                    reminderMinutesBefore = 10,
                     createdAt = LocalDate(2024, 10, 1),
                 ),
                 Task(
@@ -130,7 +133,7 @@ private fun UpcomingTasksSectionPreview() {
                     status = TaskStatus.TODO,
                     source = TaskSource.PLANNER,
                     tags = emptyList(),
-                    hasReminder = true,
+                    reminderMinutesBefore = 10,
                     createdAt = LocalDate(2024, 10, 15),
                 ),
             ),

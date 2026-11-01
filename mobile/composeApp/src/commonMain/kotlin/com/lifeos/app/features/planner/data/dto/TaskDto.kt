@@ -28,4 +28,9 @@ data class TaskDto(
     val taskListId: String? = null,
     val createdAt: String,
     val updatedAt: String,
+    /** `TASK`/`MEETING`; defaults keep older responses readable. */
+    val type: String = "TASK",
+    val durationMinutes: Int? = null,
+    val location: String? = null,
+    val reminderMinutesBefore: Int? = null,
 )
