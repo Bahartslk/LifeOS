@@ -18,8 +18,10 @@ function formatTask(task: AiPlannerTaskSummary): string {
   const time = task.dueTime ? ` ${task.dueTime}` : '';
   const duration = task.durationMinutes ? `, ${task.durationMinutes} min` : '';
   const location = task.location ? `, at ${task.location}` : '';
-  const kind = task.type === 'MEETING' ? 'MEETING: ' : '';
-  return `- [${task.status}/${task.priority}] ${kind}${task.title} (${task.dueDate}${time}${duration}${location})`;
+  // The meeting marker sits in the details, not before the title: the model
+  // copies titles into its answer and would otherwise show "MEETING: ...".
+  const kind = task.type === 'MEETING' ? 'meeting, ' : '';
+  return `- [${task.status}/${task.priority}] ${task.title} (${kind}${task.dueDate}${time}${duration}${location})`;
 }
 
 export function formatPlannerContext(planner: AiPlannerContext): string {
