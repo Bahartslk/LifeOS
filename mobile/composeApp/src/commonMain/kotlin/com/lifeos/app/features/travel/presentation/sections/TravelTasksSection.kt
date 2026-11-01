@@ -139,7 +139,7 @@ private fun TravelTasksSectionPreview() {
                     status = TaskStatus.TODO,
                     source = TaskSource.TRAVEL,
                     tags = listOf("seyahat"),
-                    hasReminder = true,
+                    reminderMinutesBefore = 10,
                     createdAt = LocalDate(2024, 10, 1),
                 ),
             ),

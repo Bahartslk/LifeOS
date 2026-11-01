@@ -140,7 +140,7 @@ class AiAssistantViewModelTest {
         val request = plannerRepository.createdRequests.single()
         assertEquals(REMINDER.title, request.title)
         assertEquals(REMINDER.recommendedDate, request.dueDate.date)
-        assertTrue(request.hasReminder)
+        assertNull(request.reminderMinutesBefore)
         val briefState = viewModel.uiState.value.dailyBrief
         assertEquals(setOf(REMINDER), briefState.addedReminders)
         assertTrue(briefState.addingReminders.isEmpty())
@@ -252,8 +252,9 @@ class AiAssistantViewModelTest {
             status = TaskStatus.TODO,
             source = TaskSource.AI_ASSISTANT,
             tags = tags,
-            hasReminder = hasReminder,
             createdAt = TODAY,
+            type = type,
+            reminderMinutesBefore = reminderMinutesBefore,
         )
 
         override suspend fun getCalendarMonth(year: Int, month: Int): Result<PlannerCalendarMonth> = error("unused")

@@ -1,6 +1,7 @@
 package com.lifeos.app.features.planner.domain.model
 
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * The single, canonical task representation for the entire application —
@@ -19,9 +20,8 @@ import kotlinx.datetime.LocalDate
  * (`title`/`description`/`due_date`/`priority`/`status`) plus three
  * additions the current schema doesn't have yet but this task's screen
  * content requires: [category] (Quick Categories), [source] (provenance
- * once other features start creating tasks), and [tags]/[hasReminder]
- * (planner.png's "+4" attendee-style indicator and reminder bell). Adding
- * columns for these later is a additive, non-breaking migration.
+ * once other features start creating tasks), and [tags] (planner.png's
+ * "+4" attendee-style indicator; still client-only).
  *
  * [dueDate]/[createdAt] are real domain date values, not pre-formatted
  * Turkish display strings — an architectural refactor sprint's requirement,
@@ -32,10 +32,10 @@ import kotlinx.datetime.LocalDate
  * [com.lifeos.app.core.date.RelativeDateFormatter]) — nothing in `domain`
  * ever formats a date.
  *
- * [estimatedDurationLabel] remains a pre-formatted display string
- * (Create Task's "45 dakika" free-text field, deliberately not a
- * structured duration type) — it is a label, not a point in time, so it
- * sits outside this refactor's scope entirely.
+ * [type]/[durationMinutes]/[location]/[reminderMinutesBefore] (week 4) are
+ * real backend columns: a [TaskType.MEETING] always has a time, and
+ * [reminderMinutesBefore] (null = no reminder, 0 = at the time) drives the
+ * push reminder. [hasReminder] is derived from it.
  */
 data class Task(
     val id: String,
@@ -47,10 +47,32 @@ data class Task(
     val status: TaskStatus,
     val source: TaskSource,
     val tags: List<String>,
-    val hasReminder: Boolean,
     val createdAt: LocalDate,
-    val estimatedDurationLabel: String? = null,
-)
+    val type: TaskType = TaskType.TASK,
+    val durationMinutes: Int? = null,
+    val location: String? = null,
+    val reminderMinutesBefore: Int? = null,
+) {
+    val hasReminder: Boolean get() = reminderMinutesBefore != null
+
+    val isMeeting: Boolean get() = type == TaskType.MEETING
+
+    /** When it ends, if both a start time and a duration are known (wraps past midnight). */
+    val endTime: LocalTime?
+        get() {
+            val start = dueDate.time ?: return null
+            val minutes = durationMinutes ?: return null
+            val total = (start.hour * 60 + start.minute + minutes) % MINUTES_PER_DAY
+            return LocalTime(total / 60, total % 60)
+        }
+
+    private companion object {
+        const val MINUTES_PER_DAY = 24 * 60
+    }
+}
+
+/** Mirrors the backend's `TaskType`: a plain to-do or a meeting. */
+enum class TaskType { TASK, MEETING }
 
 /** Mirrors `tasks.priority`'s `low`/`medium`/`high` check constraint (FR-PLANNER-06). */
 enum class TaskPriority { LOW, MEDIUM, HIGH }

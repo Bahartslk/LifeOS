@@ -265,7 +265,6 @@ class CalendarViewModelTest {
         status = TaskStatus.TODO,
         source = TaskSource.PLANNER,
         tags = emptyList(),
-        hasReminder = false,
         createdAt = date,
     )
 

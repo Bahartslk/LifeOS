@@ -9,6 +9,7 @@ import com.lifeos.app.features.planner.domain.model.Task
 import com.lifeos.app.features.planner.domain.model.TaskCategory
 import com.lifeos.app.features.planner.domain.model.TaskDetail
 import com.lifeos.app.features.planner.domain.model.TaskPriority
+import com.lifeos.app.features.planner.domain.model.TaskType
 import com.lifeos.app.features.planner.domain.repository.PlannerRepository
 import com.lifeos.app.features.planner.domain.usecase.CreateTaskUseCase
 import kotlinx.coroutines.test.runTest
@@ -34,7 +35,9 @@ class AddReminderToAgendaUseCaseTest {
         assertNull(request.dueDate.time)
         assertEquals(TaskPriority.MEDIUM, request.priority)
         assertEquals(TaskCategory.TRAVEL, request.category)
-        assertTrue(request.hasReminder)
+        // A suggestion has no time, so it stays a plain task without a push reminder.
+        assertEquals(TaskType.TASK, request.type)
+        assertNull(request.reminderMinutesBefore)
     }
 
     @Test

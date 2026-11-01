@@ -23,6 +23,7 @@ import com.lifeos.app.features.planner.domain.model.TaskDueDate
 import com.lifeos.app.features.planner.domain.model.TaskPriority
 import com.lifeos.app.features.planner.domain.model.TaskSource
 import com.lifeos.app.features.planner.domain.model.TaskStatus
+import com.lifeos.app.features.planner.domain.model.TaskType
 import com.lifeos.app.features.planner.presentation.PlannerStrings
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
@@ -34,9 +35,8 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
  * don't warrant their own dedicated card the way Priority and Category do
  * (both already have a rich visual treatment elsewhere in this feature).
  * Reuses [InfoRow] for every "label above value" fact, the same component
- * Travel Detail's Flight/Hotel sections use. [Task.estimatedDurationLabel]
- * only renders when set (Create Task's requirement) — every task created
- * before that field existed simply has nothing to show here.
+ * Travel Detail's Flight/Hotel sections use. For a meeting it also shows
+ * the type, the time range and the place; the duration shows when set.
  */
 @Composable
 fun TaskInfoCard(
@@ -59,13 +59,28 @@ fun TaskInfoCard(
             )
             InfoRow(
                 label = PlannerStrings.REMINDER_LABEL,
-                value = if (task.hasReminder) PlannerStrings.REMINDER_ON else PlannerStrings.REMINDER_OFF,
+                value = PlannerStrings.reminderDetailLabel(task.reminderMinutesBefore),
                 modifier = Modifier.weight(1f),
             )
         }
-        if (task.estimatedDurationLabel != null) {
+        if (task.isMeeting) {
             Spacer(modifier = Modifier.height(LifeOSSpacing.lg))
-            InfoRow(label = PlannerStrings.ESTIMATED_DURATION_LABEL, value = task.estimatedDurationLabel)
+            Row(horizontalArrangement = Arrangement.spacedBy(LifeOSSpacing.lg)) {
+                InfoRow(
+                    label = PlannerStrings.TYPE_LABEL,
+                    value = task.type.toLabel(),
+                    modifier = Modifier.weight(1f),
+                )
+                InfoRow(
+                    label = PlannerStrings.LOCATION_LABEL,
+                    value = task.location ?: PlannerStrings.DESCRIPTION_EMPTY,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        task.durationMinutes?.let { minutes ->
+            Spacer(modifier = Modifier.height(LifeOSSpacing.lg))
+            InfoRow(label = PlannerStrings.DURATION_LABEL, value = PlannerStrings.durationLabel(minutes))
         }
         Spacer(modifier = Modifier.height(LifeOSSpacing.lg))
         InfoRow(label = PlannerStrings.STATUS_LABEL, value = task.status.toLabel())
@@ -113,14 +128,17 @@ private fun TaskInfoCardPreview() {
                 status = TaskStatus.IN_PROGRESS,
                 source = TaskSource.PLANNER,
                 tags = listOf("Ayşe", "Mehmet", "Zeynep", "Can"),
-                hasReminder = true,
                 createdAt = LocalDate(2024, 10, 21),
+                type = TaskType.MEETING,
+                durationMinutes = 60,
+                location = "Ofis, toplantı odası 2",
+                reminderMinutesBefore = 10,
             ),
         )
     }
 }
 
-/** A task created via Create Task's flow, with [Task.estimatedDurationLabel] set. */
+/** A plain timed task with a duration and a reminder. */
 @Preview
 @Composable
 private fun TaskInfoCardWithEstimatedDurationPreview() {
@@ -136,9 +154,9 @@ private fun TaskInfoCardWithEstimatedDurationPreview() {
                 status = TaskStatus.TODO,
                 source = TaskSource.PLANNER,
                 tags = emptyList(),
-                hasReminder = true,
+                reminderMinutesBefore = 15,
                 createdAt = LocalDate(2024, 10, 24),
-                estimatedDurationLabel = "45 dakika",
+                durationMinutes = 45,
             ),
         )
     }

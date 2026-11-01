@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lifeos.app.core.date.AppDateParser
 import com.lifeos.app.features.planner.domain.model.CreateTaskRequest
 import com.lifeos.app.features.planner.domain.model.TaskDueDate
+import com.lifeos.app.features.planner.domain.model.TaskType
 import com.lifeos.app.features.planner.domain.usecase.CreateTaskUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,18 +49,37 @@ class CreateTaskViewModel(
             CreateTaskEvent.BackClicked -> sendAction(CreateTaskAction.NavigateBack)
             is CreateTaskEvent.TitleChanged -> update { it.copy(title = event.value, titleError = null) }
             is CreateTaskEvent.DescriptionChanged -> update { it.copy(description = event.value) }
-            is CreateTaskEvent.DueDateChanged -> update { it.copy(dueDate = event.value, dueDateError = null) }
-            is CreateTaskEvent.ReminderToggled -> update { it.copy(hasReminder = event.enabled) }
+            is CreateTaskEvent.DueDateChanged ->
+                update { it.copy(dueDate = event.value, dueDateError = null, timeError = null) }
+            is CreateTaskEvent.TypeSelected -> selectType(event.type)
+            CreateTaskEvent.TimeFieldClicked -> update { it.copy(isTimePickerVisible = true) }
+            is CreateTaskEvent.TimeSelected ->
+                update { it.copy(time = event.time, isTimePickerVisible = false, timeError = null) }
+            CreateTaskEvent.TimeCleared -> update { it.copy(time = null, isTimePickerVisible = false) }
+            CreateTaskEvent.TimePickerDismissed -> update { it.copy(isTimePickerVisible = false) }
+            is CreateTaskEvent.DurationSelected -> update { it.copy(durationMinutes = event.minutes) }
+            is CreateTaskEvent.LocationChanged -> update { it.copy(location = event.value) }
+            is CreateTaskEvent.ReminderSelected ->
+                update { it.copy(reminderMinutesBefore = event.minutes, timeError = null) }
             is CreateTaskEvent.PrioritySelected -> update { it.copy(priority = event.priority) }
             is CreateTaskEvent.CategorySelected -> update { it.copy(category = event.category) }
             is CreateTaskEvent.TagInputChanged -> update { it.copy(tagInput = event.value) }
             CreateTaskEvent.TagAdded -> addTag()
             is CreateTaskEvent.TagRemoved -> update { it.copy(tags = it.tags - event.tag) }
-            is CreateTaskEvent.EstimatedDurationChanged -> update { it.copy(estimatedDuration = event.value) }
             is CreateTaskEvent.RepeatOptionSelected -> update { it.copy(repeatOption = event.option) }
             is CreateTaskEvent.NotesChanged -> update { it.copy(notes = event.value) }
             CreateTaskEvent.SaveClicked -> save()
         }
+    }
+
+    /** A meeting starts with the default reminder unless one was already chosen. */
+    private fun selectType(type: TaskType) = update {
+        val reminder = if (type == TaskType.MEETING && it.reminderMinutesBefore == null) {
+            DEFAULT_MEETING_REMINDER_MINUTES
+        } else {
+            it.reminderMinutesBefore
+        }
+        it.copy(type = type, reminderMinutesBefore = reminder, timeError = null)
     }
 
     private fun addTag() {
@@ -80,14 +100,22 @@ class CreateTaskViewModel(
             parsedDueDate == null -> PlannerStrings.DUE_DATE_INVALID_FORMAT_ERROR
             else -> null
         }
-        if (titleError != null || parsedDueDate == null) {
-            update { it.copy(titleError = titleError, dueDateError = dueDateError) }
+        // The picked time wins over one typed into the date field.
+        val time = state.time ?: parsedDueDate?.second
+        val timeError = when {
+            time != null -> null
+            state.type == TaskType.MEETING -> PlannerStrings.MEETING_TIME_REQUIRED_ERROR
+            state.reminderMinutesBefore != null -> PlannerStrings.REMINDER_TIME_REQUIRED_ERROR
+            else -> null
+        }
+        if (titleError != null || parsedDueDate == null || timeError != null) {
+            update { it.copy(titleError = titleError, dueDateError = dueDateError, timeError = timeError) }
             return
         }
 
         viewModelScope.launch {
             update { it.copy(isSaving = true) }
-            val dueDate = TaskDueDate(date = parsedDueDate.first, time = parsedDueDate.second)
+            val dueDate = TaskDueDate(date = parsedDueDate.first, time = time)
             createTask(state.toRequest(dueDate))
                 .onSuccess {
                     update { it.copy(isSaving = false) }
@@ -116,7 +144,10 @@ private fun CreateTaskUiState.toRequest(dueDate: TaskDueDate): CreateTaskRequest
     priority = priority,
     category = category,
     tags = tags,
-    hasReminder = hasReminder,
-    estimatedDurationLabel = estimatedDuration.trim().ifBlank { null },
     notes = notes.trim().ifBlank { null },
+    type = type,
+    durationMinutes = durationMinutes,
+    // A place only describes a meeting; a plain task never sends one.
+    location = location.trim().ifBlank { null }?.takeIf { type == TaskType.MEETING },
+    reminderMinutesBefore = reminderMinutesBefore,
 )

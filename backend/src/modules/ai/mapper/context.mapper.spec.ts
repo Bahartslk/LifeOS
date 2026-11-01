@@ -109,7 +109,7 @@ describe('formatPlannerContext', () => {
     } as TaskResponseDto;
 
     expect(formatPlannerContext(toPlannerContext(dashboard({ todayTasks: [meeting] })))).toContain(
-      '- [TODO/MEDIUM] MEETING: Sprint planlama (2026-10-02 10:00, 30 min, at Ofis)',
+      '- [TODO/MEDIUM] Sprint planlama (meeting, 2026-10-02 10:00, 30 min, at Ofis)',
     );
   });
 });

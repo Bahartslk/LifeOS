@@ -95,7 +95,6 @@ class PlannerTaskListsTest {
         status = TaskStatus.TODO,
         source = TaskSource.PLANNER,
         tags = emptyList(),
-        hasReminder = false,
         createdAt = LocalDate(2026, 9, 1),
     )
 }

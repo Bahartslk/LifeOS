@@ -69,7 +69,6 @@ private fun OverdueTasksSectionPreview() {
                     status = TaskStatus.TODO,
                     source = TaskSource.PLANNER,
                     tags = emptyList(),
-                    hasReminder = false,
                     createdAt = LocalDate(2024, 10, 15),
                 ),
             ),

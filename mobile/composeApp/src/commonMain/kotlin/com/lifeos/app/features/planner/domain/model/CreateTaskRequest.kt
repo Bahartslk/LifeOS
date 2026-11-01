@@ -23,7 +23,10 @@ data class CreateTaskRequest(
     val priority: TaskPriority,
     val category: TaskCategory,
     val tags: List<String>,
-    val hasReminder: Boolean,
-    val estimatedDurationLabel: String?,
     val notes: String?,
+    val type: TaskType = TaskType.TASK,
+    val durationMinutes: Int? = null,
+    val location: String? = null,
+    /** Null = no reminder. The backend also gives a new meeting 10 minutes when this is left out; the form always sends its choice. */
+    val reminderMinutesBefore: Int? = null,
 )

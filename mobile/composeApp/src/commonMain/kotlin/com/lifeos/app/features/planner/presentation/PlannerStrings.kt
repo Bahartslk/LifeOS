@@ -92,8 +92,10 @@ internal object PlannerStrings {
     const val DESCRIPTION_EMPTY = "Açıklama eklenmedi."
     const val DUE_DATE_LABEL = "Son Tarih"
     const val REMINDER_LABEL = "Hatırlatıcı"
-    const val REMINDER_ON = "Açık"
     const val REMINDER_OFF = "Kapalı"
+    const val TYPE_LABEL = "Tür"
+    const val TIME_RANGE_LABEL = "Saat"
+    const val LOCATION_LABEL = "Yer"
     const val STATUS_LABEL = "Durum"
     const val TAGS_LABEL = "Etiketler"
     const val TASK_STATUS_TODO_LABEL = "Yapılacak"
@@ -173,13 +175,54 @@ internal object PlannerStrings {
     const val DUE_DATE_REQUIRED_ERROR = "Son tarih zorunludur."
     const val DUE_DATE_INVALID_FORMAT_ERROR = "Tarih anlaşılamadı. Örn: \"Yarın, 14:00\" veya \"12 Kasım\"."
 
-    // Reminder Section
-    const val REMINDER_TOGGLE_SUBTITLE = "Son tarihte bildirim al"
-    const val REMINDER_TOGGLE_CONTENT_DESCRIPTION = "Hatırlatıcıyı aç/kapat"
+    // Type (task / meeting)
+    const val TASK_TYPE_TITLE = "Tür"
+    const val TASK_TYPE_TASK = "Görev"
+    const val TASK_TYPE_MEETING = "Toplantı"
 
-    // Estimated Duration Field
-    const val ESTIMATED_DURATION_LABEL = "Tahmini Süre"
-    const val ESTIMATED_DURATION_PLACEHOLDER = "Örn. 45 dakika"
+    // Time
+    const val TIME_LABEL = "Saat"
+    const val TIME_PLACEHOLDER = "Saat seçin"
+    const val TIME_OPTIONAL_HINT = "İsteğe bağlı; toplantı ve hatırlatma için gerekli."
+    const val TIME_PICKER_TITLE = "Saat seçin"
+    const val TIME_PICKER_CONFIRM = "Tamam"
+    const val TIME_PICKER_DISMISS = "Vazgeç"
+    const val TIME_CLEAR = "Saati kaldır"
+    const val TIME_FIELD_CONTENT_DESCRIPTION = "Saat seç"
+    const val MEETING_TIME_REQUIRED_ERROR = "Toplantı için saat seçin."
+    const val REMINDER_TIME_REQUIRED_ERROR = "Hatırlatma için saat seçin."
+
+    // Duration
+    const val DURATION_LABEL = "Süre"
+    const val DURATION_NONE = "Yok"
+    fun durationLabel(minutes: Int): String = when {
+        minutes < 60 -> "$minutes dk"
+        minutes % 60 == 0 -> "${minutes / 60} saat"
+        else -> "${minutes / 60} sa ${minutes % 60} dk"
+    }
+
+    // Location
+    const val LOCATION_PLACEHOLDER = "Örn. Ofis, toplantı odası 2 veya Zoom"
+
+    // Reminder
+    const val REMINDER_SUBTITLE = "Bildirim, seçilen saatten bu kadar önce gelir."
+    const val REMINDER_NONE = "Yok"
+    const val REMINDER_AT_TIME = "Zamanında"
+    fun reminderOptionLabel(minutes: Int): String = when (minutes) {
+        0 -> REMINDER_AT_TIME
+        60 -> "1 saat"
+        else -> "$minutes dk"
+    }
+    fun reminderDetailLabel(minutes: Int?): String = when (minutes) {
+        null -> REMINDER_OFF
+        0 -> REMINDER_AT_TIME
+        60 -> "1 saat önce"
+        else -> "$minutes dk önce"
+    }
+
+    // Meeting line on cards
+    fun meetingLine(location: String?): String =
+        if (location.isNullOrBlank()) TASK_TYPE_MEETING else "$TASK_TYPE_MEETING · $location"
 
     // Repeat Section (UI only)
     const val REPEAT_TITLE = "Tekrarlama"

@@ -8,6 +8,7 @@ import com.lifeos.app.features.planner.domain.model.Task
 import com.lifeos.app.features.planner.domain.model.TaskCategory
 import com.lifeos.app.features.planner.domain.model.TaskDueDate
 import com.lifeos.app.features.planner.domain.model.TaskPriority
+import com.lifeos.app.features.planner.domain.model.TaskType
 import com.lifeos.app.features.planner.domain.usecase.CreateTaskUseCase
 import kotlinx.datetime.LocalDate
 
@@ -19,9 +20,9 @@ import kotlinx.datetime.LocalDate
  *   already passed (a reminder in the past is of no use).
  * - Category: [TaskCategory.TRAVEL] for travel-related suggestions,
  *   otherwise [TaskCategory.PERSONAL]. Priority: [TaskPriority.MEDIUM].
- * - The AI's reason becomes the task description. The request is marked
- *   `hasReminder`, but the backend doesn't store that flag yet (no reminder
- *   or notification exists until push notifications are added).
+ * - The AI's reason becomes the task description.
+ * - It stays a plain [TaskType.TASK] with no push reminder: a suggestion has
+ *   a date but no time, and a reminder needs one.
  */
 class AddReminderToAgendaUseCase(
     private val createTask: CreateTaskUseCase,
@@ -39,9 +40,9 @@ class AddReminderToAgendaUseCase(
             priority = TaskPriority.MEDIUM,
             category = if (relatedTo == ReminderRelatedTo.PLANNER) TaskCategory.PERSONAL else TaskCategory.TRAVEL,
             tags = emptyList(),
-            hasReminder = true,
-            estimatedDurationLabel = null,
             notes = null,
+            type = TaskType.TASK,
+            reminderMinutesBefore = null,
         )
     }
 }

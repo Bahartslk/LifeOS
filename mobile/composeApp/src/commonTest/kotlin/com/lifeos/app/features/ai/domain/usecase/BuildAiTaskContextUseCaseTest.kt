@@ -109,7 +109,6 @@ class BuildAiTaskContextUseCaseTest {
         status = status,
         source = source,
         tags = emptyList(),
-        hasReminder = false,
         createdAt = LocalDate(2026, 9, 1),
     )
 }
