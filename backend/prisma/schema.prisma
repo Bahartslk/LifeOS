@@ -247,6 +247,14 @@ enum TaskSource {
   AI_ASSISTANT
 }
 
+/// A plain to-do or a meeting (week 4). A meeting is a task with a time: it
+/// shows up everywhere tasks do (agenda, calendar, dashboard, AI context)
+/// and adds a duration and a place. See `Task`'s doc comment.
+enum TaskType {
+  TASK
+  MEETING
+}
+
 /// Not present on mobile yet (mobile has no `TaskList`/`taskListId` concept
 /// today — see `TaskList`'s own doc comment). Values are this sprint's
 /// "Personal, Work, Travel, Custom" examples.
@@ -314,6 +322,12 @@ model TaskList {
 /// `source` defaults to `PLANNER` and is never client-settable through
 /// `POST /planner/tasks` (see `PlannerService.createTask`) — provenance
 /// must not be spoofable by the caller.
+///
+/// `type`/`durationMinutes`/`location`/`reminderMinutesBefore` (week 4):
+/// a `MEETING` must have a `dueTime`; `durationMinutes` and `location`
+/// describe it. `reminderMinutesBefore` (null = no reminder, 0 = at the
+/// time) also needs a `dueTime`; it drives the push reminder. All are
+/// interpreted in the user's `timezone`, like `dueDate`/`dueTime`.
 model Task {
   id            String         @id @default(uuid()) @db.Uuid
   userId        String         @map("user_id") @db.Uuid
@@ -326,6 +340,10 @@ model Task {
   category      TaskCategory   @default(PERSONAL)
   status        TaskStatus     @default(TODO)
   source        TaskSource     @default(PLANNER)
+  type          TaskType       @default(TASK)
+  durationMinutes       Int?   @map("duration_minutes")
+  location      String?
+  reminderMinutesBefore Int?   @map("reminder_minutes_before")
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz

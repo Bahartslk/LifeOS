@@ -1,4 +1,4 @@
-import { Task, TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { Task, TaskCategory, TaskPriority, TaskSource, TaskStatus, TaskType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { PlannerService } from './planner.service';
@@ -102,6 +102,10 @@ function task(
     category: TaskCategory.PERSONAL,
     status: TaskStatus.TODO,
     source: TaskSource.PLANNER,
+    type: TaskType.TASK,
+    durationMinutes: null,
+    location: null,
+    reminderMinutesBefore: null,
     createdAt: new Date('2026-09-01T10:00:00.000Z'),
     updatedAt: new Date('2026-09-01T10:00:00.000Z'),
     deletedAt: null,

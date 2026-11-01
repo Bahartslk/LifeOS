@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { TaskCategory, TaskPriority, TaskSource, TaskStatus, TaskType } from '@prisma/client';
 
 /** The only shape a `Task` is ever sent over the API — `userId`/`deletedAt` never leave the repository layer. */
 export class TaskResponseDto {
@@ -29,6 +29,23 @@ export class TaskResponseDto {
 
   @ApiProperty({ enum: TaskSource })
   source!: TaskSource;
+
+  @ApiProperty({ enum: TaskType })
+  type!: TaskType;
+
+  @ApiProperty({ example: 30, nullable: true, type: Number })
+  durationMinutes!: number | null;
+
+  @ApiProperty({ nullable: true, type: String })
+  location!: string | null;
+
+  @ApiProperty({
+    example: 10,
+    nullable: true,
+    type: Number,
+    description: 'Minutes before `dueTime` the push reminder goes out; `null` = no reminder.',
+  })
+  reminderMinutesBefore!: number | null;
 
   @ApiProperty({ format: 'uuid', nullable: true, type: String })
   taskListId!: string | null;

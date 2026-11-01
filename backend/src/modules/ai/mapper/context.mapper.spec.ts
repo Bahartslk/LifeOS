@@ -15,6 +15,10 @@ function taskDto(title: string, dueDate: string, status = 'TODO'): TaskResponseD
     category: 'PERSONAL',
     status,
     source: 'PLANNER',
+    type: 'TASK',
+    durationMinutes: null,
+    location: null,
+    reminderMinutesBefore: null,
     taskListId: null,
     createdAt: new Date('2026-09-01T10:00:00Z'),
     updatedAt: new Date('2026-09-01T10:00:00Z'),
@@ -54,6 +58,9 @@ describe('toPlannerContext', () => {
       dueTime: null,
       priority: 'MEDIUM',
       status: 'IN_PROGRESS',
+      type: 'TASK',
+      durationMinutes: null,
+      location: null,
     });
   });
 
@@ -89,6 +96,20 @@ describe('formatPlannerContext', () => {
   it('shows (none) when nothing is overdue', () => {
     expect(formatPlannerContext(toPlannerContext(dashboard({})))).toContain(
       'Overdue tasks (unfinished, due before today):\n(none)',
+    );
+  });
+
+  it('marks meetings and shows their time, length and place', () => {
+    const meeting = {
+      ...taskDto('Sprint planlama', '2026-10-02'),
+      dueTime: '10:00',
+      type: 'MEETING',
+      durationMinutes: 30,
+      location: 'Ofis',
+    } as TaskResponseDto;
+
+    expect(formatPlannerContext(toPlannerContext(dashboard({ todayTasks: [meeting] })))).toContain(
+      '- [TODO/MEDIUM] MEETING: Sprint planlama (2026-10-02 10:00, 30 min, at Ofis)',
     );
   });
 });

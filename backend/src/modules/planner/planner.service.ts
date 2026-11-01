@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Task, TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Task, TaskCategory, TaskPriority, TaskSource, TaskStatus, TaskType } from '@prisma/client';
 import { TaskListsRepository } from './repositories/task-lists.repository';
 import { TasksRepository } from './repositories/tasks.repository';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -18,6 +18,27 @@ import {
 import { UsersService } from '../users/users.service';
 
 type SortField = 'dueDate' | 'createdAt' | 'priority';
+
+/** A new meeting's reminder when the request doesn't choose one (product decision: 10 minutes before). */
+export const DEFAULT_MEETING_REMINDER_MINUTES = 10;
+
+/**
+ * A meeting happens at a time, and a reminder fires relative to one, so
+ * both need a `dueTime`. Checked against the task as it will be saved.
+ */
+function assertTimedFields(task: {
+  type: TaskType;
+  dueTime: string | null;
+  reminderMinutesBefore: number | null;
+}): void {
+  if (task.dueTime) return;
+  if (task.type === TaskType.MEETING) {
+    throw new BadRequestException('A meeting needs a dueTime.');
+  }
+  if (task.reminderMinutesBefore !== null) {
+    throw new BadRequestException('A reminder needs a dueTime.');
+  }
+}
 
 export interface CreateIntegrationTaskData {
   title: string;
@@ -48,6 +69,15 @@ export class PlannerService {
   async createTask(userId: string, dto: CreateTaskDto): Promise<TaskResponseDto> {
     await this.assertTaskListOwnership(userId, dto.taskListId);
 
+    const type = dto.type ?? TaskType.TASK;
+    const reminderMinutesBefore =
+      dto.reminderMinutesBefore !== undefined
+        ? dto.reminderMinutesBefore
+        : type === TaskType.MEETING
+          ? DEFAULT_MEETING_REMINDER_MINUTES
+          : null;
+    assertTimedFields({ type, dueTime: dto.dueTime ?? null, reminderMinutesBefore });
+
     const task = await this.tasksRepository.create({
       userId,
       title: dto.title,
@@ -58,6 +88,10 @@ export class PlannerService {
       category: dto.category,
       taskListId: dto.taskListId ?? null,
       source: TaskSource.PLANNER,
+      type,
+      durationMinutes: dto.durationMinutes ?? null,
+      location: dto.location ?? null,
+      reminderMinutesBefore,
     });
 
     return this.toResponse(task);
@@ -96,6 +130,10 @@ export class PlannerService {
       category: TaskCategory.PERSONAL,
       taskListId: null,
       source: data.source,
+      type: TaskType.TASK,
+      durationMinutes: null,
+      location: null,
+      reminderMinutesBefore: null,
     });
 
     return this.toResponse(task);
@@ -103,6 +141,21 @@ export class PlannerService {
 
   async updateTask(userId: string, id: string, dto: UpdateTaskDto): Promise<TaskResponseDto> {
     await this.assertTaskListOwnership(userId, dto.taskListId);
+    if (dto.type !== undefined || dto.reminderMinutesBefore !== undefined) {
+      // The rules depend on fields the request may not repeat, so check the result of the update.
+      const current = await this.tasksRepository.findById(id, userId);
+      if (!current) {
+        throw new NotFoundException('Task not found.');
+      }
+      assertTimedFields({
+        type: dto.type ?? current.type,
+        dueTime: dto.dueTime ?? fromDbTime(current.dueTime),
+        reminderMinutesBefore:
+          dto.reminderMinutesBefore !== undefined
+            ? dto.reminderMinutesBefore
+            : current.reminderMinutesBefore,
+      });
+    }
 
     const task = await this.tasksRepository.update(id, userId, {
       ...(dto.title !== undefined && { title: dto.title }),
@@ -113,6 +166,12 @@ export class PlannerService {
       ...(dto.category !== undefined && { category: dto.category }),
       ...(dto.status !== undefined && { status: dto.status }),
       ...(dto.taskListId !== undefined && { taskListId: dto.taskListId }),
+      ...(dto.type !== undefined && { type: dto.type }),
+      ...(dto.durationMinutes !== undefined && { durationMinutes: dto.durationMinutes }),
+      ...(dto.location !== undefined && { location: dto.location }),
+      ...(dto.reminderMinutesBefore !== undefined && {
+        reminderMinutesBefore: dto.reminderMinutesBefore,
+      }),
     });
 
     if (!task) {
@@ -281,6 +340,10 @@ export class PlannerService {
       category: task.category,
       status: task.status,
       source: task.source,
+      type: task.type,
+      durationMinutes: task.durationMinutes,
+      location: task.location,
+      reminderMinutesBefore: task.reminderMinutesBefore,
       taskListId: task.taskListId,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,

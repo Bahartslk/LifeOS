@@ -21,6 +21,10 @@ export interface AiPlannerTaskSummary {
   dueTime: string | null;
   priority: string;
   status: string;
+  /** `TASK` or `MEETING`. */
+  type: string;
+  durationMinutes: number | null;
+  location: string | null;
 }
 
 export interface AiPlannerContext {
