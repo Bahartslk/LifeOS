@@ -119,6 +119,27 @@ A forgotten password is reset with a 6-digit code sent by email (FR-AUTH-04).
 
 The session-management pair (FR-PROFILE-05) remains undelivered.
 
+### Notifications
+
+Push notifications go through Firebase Cloud Messaging (week 4). Android only; iOS would need APNs.
+
+| Method | Path | Requirement | Auth Required |
+| --- | --- | --- | --- |
+| PUT | `/api/v1/notifications/devices` | Register this device for push notifications | Yes |
+| DELETE | `/api/v1/notifications/devices` | Forget a device (sign-out) | No |
+
+- **`PUT /notifications/devices`** `{ "token", "platform": "ANDROID" | "IOS" }` → `200 { "success": true }`. Idempotent: registering again refreshes the device. A token registered by another user moves to the caller (one device, one owner). Unknown fields or a missing token → `400`.
+- **`DELETE /notifications/devices`** `{ "token" }` → always `200 { "success": true }`. No access token is needed, so a device whose session already expired can still unregister at sign-out. The answer is the same whether or not the token was known. Rate limited to 10 requests per minute per client IP (`THROTTLE_DEVICE_UNREGISTER_LIMIT`), then `429`.
+- **When devices are forgotten:**
+  - At sign-out (the app unregisters).
+  - When FCM reports a token as unregistered or malformed.
+  - For every device of the user when the password changes or is reset, because those sign every session out. The device that changed the password registers again.
+  - With the account (cascade).
+- **Sending** (`NotificationsService.sendToUser`) goes to all of a user's devices and never throws, so a failed push can't break whatever triggered it. It uses FCM's HTTP v1 API with a service account key (`FIREBASE_SERVICE_ACCOUNT_JSON`: the key file's JSON, or base64 of it), with no Firebase SDK.
+  - Without a key: the notification is written to the log in development and test, and skipped with a warning (no content) in production.
+  - A malformed key stops the app at startup.
+  - Logs never contain device tokens or keys.
+
 ### Admin
 
 Role-restricted routes for the admin panel, implemented by `AdminModule` and consumed by the web client in `admin/` (see [12-project-architecture.md](12-project-architecture.md#admin-web-client)). Every route requires an authenticated account whose **current role in the database** is `ADMIN` (see [Authorization](#authorization)): a missing or invalid token returns `401`, a regular user `403`.

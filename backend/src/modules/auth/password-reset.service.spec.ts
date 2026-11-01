@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { PasswordResetCode, ThemeMode, User, UserRole } from '@prisma/client';
 import { AppConfig } from '../../config/configuration';
 import { MailMessage, MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import {
   InvalidResetCodeException,
@@ -56,6 +57,7 @@ describe('PasswordResetService', () => {
   let refreshTokens: jest.Mocked<Pick<RefreshTokensRepository, 'revokeAllForUser'>>;
   let limiter: jest.Mocked<Pick<PasswordResetEmailLimiter, 'tryConsume'>>;
   let mail: { send: jest.Mock<Promise<void>, [MailMessage]> };
+  let notifications: { forgetAllDevices: jest.Mock };
   let service: PasswordResetService;
 
   beforeEach(() => {
@@ -72,6 +74,7 @@ describe('PasswordResetService', () => {
     refreshTokens = { revokeAllForUser: jest.fn().mockResolvedValue(2) };
     limiter = { tryConsume: jest.fn().mockReturnValue(true) };
     mail = { send: jest.fn().mockResolvedValue(undefined) };
+    notifications = { forgetAllDevices: jest.fn().mockResolvedValue(undefined) };
     const values: Record<string, unknown> = {
       passwordReset: { codeTtlMinutes: 15, maxAttempts: 5, emailHourlyLimit: 3 },
       'auth.bcryptSaltRounds': 4,
@@ -87,6 +90,7 @@ describe('PasswordResetService', () => {
       limiter as unknown as PasswordResetEmailLimiter,
       mail as unknown as MailService,
       config,
+      notifications as unknown as NotificationsService,
     );
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
@@ -157,6 +161,7 @@ describe('PasswordResetService', () => {
       const [, hash] = usersService.updatePasswordHash.mock.calls[0];
       await expect(bcrypt.compare('new-password', hash)).resolves.toBe(true);
       expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      expect(notifications.forgetAllDevices).toHaveBeenCalledWith(user.id);
     });
 
     it('with a wrong code: counts the attempt and changes nothing', async () => {

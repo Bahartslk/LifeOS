@@ -118,6 +118,7 @@ model User {
   trips                   Trip[]
   aiChatUsage             AiChatUsage[]
   passwordResetCodes      PasswordResetCode[]
+  deviceTokens            DeviceToken[]
 
   @@map("users")
 }
@@ -161,6 +162,30 @@ model PasswordResetCode {
 
   @@index([userId])
   @@map("password_reset_codes")
+}
+
+/// A device that can receive push notifications (week 4): its Firebase
+/// Cloud Messaging registration token. A token belongs to one user at a time
+/// (registering it again moves it), is removed when FCM reports it invalid,
+/// when the app unregisters it at sign-out, and when the user changes or
+/// resets the password. Deleted with the user.
+model DeviceToken {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  token      String         @unique
+  platform   DevicePlatform
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+/// Where a device token comes from. Only Android is built; iOS would need APNs.
+enum DevicePlatform {
+  ANDROID
+  IOS
 }
 
 /// Role-based access control (docs/15-api-design.md#authorization). `USER`

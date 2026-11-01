@@ -64,6 +64,7 @@ export const envValidationSchema = Joi.object({
   THROTTLE_PASSWORD_CHANGE_LIMIT: Joi.number().integer().min(1).default(5),
   THROTTLE_FORGOT_PASSWORD_LIMIT: Joi.number().integer().min(1).default(5),
   THROTTLE_RESET_PASSWORD_LIMIT: Joi.number().integer().min(1).default(10),
+  THROTTLE_DEVICE_UNREGISTER_LIMIT: Joi.number().integer().min(1).default(10),
 
   // Email (password reset codes) through Brevo's HTTPS API; Railway's plan
   // blocks outbound SMTP. Optional: without BREVO_API_KEY, codes are written
@@ -76,6 +77,12 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().email().optional().allow(''),
   }),
   MAIL_FROM_NAME: Joi.string().optional().allow(''),
+  // Push notifications through Firebase Cloud Messaging (HTTPS API).
+  // Optional: without a key, pushes are written to the log in development
+  // and test, and skipped (with a warning) in production. The value is the
+  // service account key file's JSON, as-is or base64-encoded; a malformed
+  // value stops the app at startup.
+  FIREBASE_SERVICE_ACCOUNT_JSON: Joi.string().optional().allow(''),
   PASSWORD_RESET_CODE_TTL_MINUTES: Joi.number().integer().min(5).max(60).default(15),
   PASSWORD_RESET_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
   PASSWORD_RESET_EMAIL_HOURLY_LIMIT: Joi.number().integer().min(1).default(3),

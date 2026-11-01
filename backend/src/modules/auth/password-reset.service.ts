@@ -6,6 +6,7 @@ import { User } from '@prisma/client';
 import { AppConfig } from '../../config/configuration';
 import { MailService } from '../mail/mail.service';
 import { buildPasswordResetEmail } from '../mail/templates/password-reset.template';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import {
   InvalidResetCodeException,
@@ -41,6 +42,7 @@ export class PasswordResetService {
     private readonly emailLimiter: PasswordResetEmailLimiter,
     private readonly mailService: MailService,
     private readonly config: ConfigService<AppConfig, true>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /** Returns as soon as the request is accepted; see `issueCode` for the rest. */
@@ -110,6 +112,7 @@ export class PasswordResetService {
     );
     if (!updated) throw new InvalidResetCodeException();
     const revoked = await this.refreshTokensRepository.revokeAllForUser(user.id);
+    await this.notificationsService.forgetAllDevices(user.id);
     this.logger.log(`Password reset (user ${user.id}); ${revoked} session(s) signed out.`);
   }
 

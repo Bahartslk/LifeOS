@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken, ThemeMode, User, UserRole } from '@prisma/client';
 import { AppConfig } from '../../config/configuration';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
@@ -80,6 +81,7 @@ describe('AuthService', () => {
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let configValues: Record<string, unknown>;
+  let notifications: { forgetAllDevices: jest.Mock };
   let service: AuthService;
 
   beforeEach(() => {
@@ -97,6 +99,7 @@ describe('AuthService', () => {
       revokeFamily: jest.fn().mockResolvedValue(undefined),
       revokeAllForUser: jest.fn().mockResolvedValue(3),
     };
+    notifications = { forgetAllDevices: jest.fn().mockResolvedValue(undefined) };
     jwtService = { signAsync: jest.fn().mockResolvedValue('signed-access-token') };
     configValues = {
       'jwt.refreshTokenTtl': '30d',
@@ -111,6 +114,7 @@ describe('AuthService', () => {
       refreshTokens as unknown as RefreshTokensRepository,
       jwtService as unknown as JwtService,
       configService,
+      notifications as unknown as NotificationsService,
     );
   });
 
@@ -492,6 +496,7 @@ describe('AuthService', () => {
       expect(usersService.updatePasswordHash).toHaveBeenCalledWith(user.id, expect.any(String));
       await expect(bcryptModule.compare(dto.newPassword, storedHash)).resolves.toBe(true);
       expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+      expect(notifications.forgetAllDevices).toHaveBeenCalledWith(user.id);
       expect(result).toEqual({
         accessToken: 'signed-access-token',
         refreshToken: expect.stringMatching(/^[0-9a-f]{80}$/),

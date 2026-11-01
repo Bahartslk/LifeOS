@@ -40,8 +40,8 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
  * same one-directional `AiModule`-only import, no circular dependency.
  * `AssistantChatModule` (`POST /ai/chat`) imports `AiModule` and
  * `UsersModule` the same one-directional way.
- * `NotificationsModule` remains an empty registration
- * with no controller or service. The `ProfileModule` shell registered
+ * `NotificationsModule` (week 4) owns push devices and sending; `AuthModule`
+ * imports it to forget devices when a password changes. The `ProfileModule` shell registered
  * since Sprint 13.0 was removed in Sprint 17.5 (Architecture Audit) once
  * its entire reserved purpose was confirmed fulfilled by `UsersModule`
  * instead.
