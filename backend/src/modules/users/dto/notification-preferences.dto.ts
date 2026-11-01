@@ -23,4 +23,11 @@ export class NotificationPreferencesDto {
   @IsOptional()
   @IsBoolean()
   aiInsights?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'The 08:00 morning summary push (week 4). Not set counts as on.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  dailySummary?: boolean;
 }

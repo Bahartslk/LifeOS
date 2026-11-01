@@ -10,7 +10,7 @@ How to deploy the backend to Railway and build a release APK that works on any A
    ```
    backend
    ```
-   This repo is a monorepo (`mobile/` + `backend/`); Railway needs to know only `backend/` is the deployable service. `backend/railway.json` (already committed) takes over from there — it tells Railway to build with Nixpacks, run `npm run build`, start with `npm run start:prod`, and healthcheck `/health`.
+   This repo is a monorepo (`mobile/` + `backend/`); Railway needs to know only `backend/` is the deployable service. `backend/railway.json` (already committed) takes over from there — it tells Railway to build with Nixpacks, run `npm run build`, start with `npm run start:prod`, and healthcheck `/health`. It also sets the restart policy: on failure, up to **10** restarts (raised from 3 in week 4). The backend now runs the push reminder scheduler, so a crash loop that outlasts the restart budget would leave reminders silent until someone redeploys by hand. The scheduler catches its own errors, so these restarts are only for real process crashes (e.g. the database being unreachable at boot). Railway's "Serverless" (app sleeping) must stay **off**, or the scheduler stops while the app sleeps.
 4. Add a **PostgreSQL** plugin to the project (**+ New → Database → PostgreSQL**). Railway provisions it and exposes a `DATABASE_URL` variable automatically.
 5. In the backend service's **Variables** tab, set every variable listed in section 2 below. For `DATABASE_URL`, reference the Postgres plugin's value: Railway lets you pick `${{Postgres.DATABASE_URL}}` from its variable-reference dropdown instead of retyping it.
 6. Deploy. Railway will run (automatically, per `backend/package.json`):

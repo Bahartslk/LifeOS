@@ -140,6 +140,19 @@ Push notifications go through Firebase Cloud Messaging (week 4). Android only; i
   - A malformed key stops the app at startup.
   - Logs never contain device tokens or keys.
 
+**Scheduler (week 4).** A timer inside the always-on backend (`ReminderScheduler`) runs once a minute, a few seconds after the minute starts. There's no separate cron service, so no extra Railway cost (Railway's cron jobs also can't run more often than every 5 minutes). It only looks at users with a registered device. It's off with `REMINDER_SCHEDULER_ENABLED=false`, and always in tests.
+
+- **Task and meeting reminders:** unfinished tasks with a `dueTime` and `reminderMinutesBefore` fire at the due time in the user's `timezone` minus the lead. Turned off by `notificationPreferences.taskReminders: false`.
+  - A meeting reads "Toplantı 10 dakika sonra: <title>" with "10:00–11:00 · <place>".
+  - A task reads "Hatırlatma: <title>", or "Zamanı geldi: <title>" at the time.
+  - The data carries `type: TASK_REMINDER` and `taskId`. Channel `reminders`.
+- **Morning summary:** at **08:00** in the user's `timezone`, if that day has at least one unfinished task. Built **without AI** (the free Gemini quota can't cover a daily push for everyone): "Günaydın! Bugün 3 görevin var", then how many are meetings and the first timed one.
+  - The data carries `type: DAILY_SUMMARY` and `date`. Channel `daily_summary`.
+  - Turned off by `notificationPreferences.dailySummary: false`; not set counts as on.
+- **Exactly once:** every push is first claimed in `notification_deliveries` under a unique key (`TASK_REMINDER:<taskId>:<fire time>`, `DAILY_SUMMARY:<userId>:<local date>`) and sent only if the claim succeeds. So nothing is sent twice across restarts, or by two instances during a deploy. A task moved to a new time is a new occurrence.
+- **Late pushes:** a push whose moment passed less than 10 minutes ago still goes out (a restart or deploy). Older ones are skipped, never sent late.
+- The wording lives in `backend/src/modules/notifications/reminders/reminder-messages.ts`.
+
 ### Admin
 
 Role-restricted routes for the admin panel, implemented by `AdminModule` and consumed by the web client in `admin/` (see [12-project-architecture.md](12-project-architecture.md#admin-web-client)). Every route requires an authenticated account whose **current role in the database** is `ADMIN` (see [Authorization](#authorization)): a missing or invalid token returns `401`, a regular user `403`.

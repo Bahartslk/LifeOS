@@ -83,6 +83,8 @@ export const envValidationSchema = Joi.object({
   // service account key file's JSON, as-is or base64-encoded; a malformed
   // value stops the app at startup.
   FIREBASE_SERVICE_ACCOUNT_JSON: Joi.string().optional().allow(''),
+  // The minute-by-minute push reminder scheduler (on unless "false"; always off in tests).
+  REMINDER_SCHEDULER_ENABLED: Joi.boolean().default(true),
   PASSWORD_RESET_CODE_TTL_MINUTES: Joi.number().integer().min(5).max(60).default(15),
   PASSWORD_RESET_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
   PASSWORD_RESET_EMAIL_HOURLY_LIMIT: Joi.number().integer().min(1).default(3),

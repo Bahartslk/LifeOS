@@ -48,6 +48,8 @@ export interface AppConfig {
      * only logged locally (never in production, where they are skipped).
      */
     firebaseServiceAccountJson: string | undefined;
+    /** The minute-by-minute reminder scheduler. Off with REMINDER_SCHEDULER_ENABLED=false, and always in tests. */
+    schedulerEnabled: boolean;
   };
   passwordReset: {
     /** How long a reset code stays valid. */
@@ -152,6 +154,8 @@ export default (): AppConfig => ({
   },
   notifications: {
     firebaseServiceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || undefined,
+    schedulerEnabled:
+      process.env.NODE_ENV !== 'test' && process.env.REMINDER_SCHEDULER_ENABLED !== 'false',
   },
   passwordReset: {
     codeTtlMinutes: parseInt(process.env.PASSWORD_RESET_CODE_TTL_MINUTES ?? '15', 10),

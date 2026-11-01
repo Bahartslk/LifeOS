@@ -16,6 +16,15 @@ export class DeviceTokensRepository {
     });
   }
 
+  /** Everyone with at least one registered device: the only users the scheduler needs to look at. */
+  async findUserIdsWithDevices(): Promise<string[]> {
+    const rows = await this.prisma.deviceToken.findMany({
+      distinct: ['userId'],
+      select: { userId: true },
+    });
+    return rows.map((row) => row.userId);
+  }
+
   async findTokensForUser(userId: string): Promise<string[]> {
     const rows = await this.prisma.deviceToken.findMany({
       where: { userId },

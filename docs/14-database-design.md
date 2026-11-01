@@ -147,6 +147,7 @@ erDiagram
 | `ai_messages` | AI Assistant | No | Child of `ai_conversations`. Carries `token_count` for AI usage/cost observability, per [12-project-architecture.md](12-project-architecture.md#rate-limiting). |
 | `password_reset_codes` | Authentication | No (closed, not deleted) | **Implemented.** One-time 6-digit password reset codes (`user_id`, `code_hash` (bcrypt, never the code), `expires_at`, `attempts`, `used_at`), see [15-api-design.md](15-api-design.md#password-reset). A code is usable while `used_at` is null, it hasn't expired and `attempts` is under the limit; a new request or a successful reset sets `used_at` on the user's open codes. Indexed on `user_id`. |
 | `device_tokens` | Notifications | No (deleted) | **Implemented.** One row per device that receives push notifications: `user_id`, unique `token` (the FCM registration token), `platform` (`ANDROID`/`IOS`), `created_at`, `last_seen_at`. A token belongs to one user at a time; rows are deleted at sign-out, when FCM reports the token dead, and when the user's password changes or is reset (see [15-api-design.md](15-api-design.md#notifications)). Indexed on `user_id`. |
+| `notification_deliveries` | Notifications | No | **Implemented.** One row per push the scheduler sent (`user_id`, `kind` `TASK_REMINDER`/`DAILY_SUMMARY`, unique `dedupe_key`, `scheduled_for`): the row is inserted before sending, so a push goes out at most once across restarts and parallel instances. Stores no message content. Rows aren't pruned yet (a few per user per day). |
 | `ai_chat_usage` | AI Assistant | No | **Implemented.** One row per user per day (`user_id`, `usage_date` as a `DATE` in the user's own time zone, `message_count`) for the AI chat daily limit, see [09-ai-features.md](09-ai-features.md#ai-chat). Unique `(user_id, usage_date)`; incremented with a single atomic upsert. Stores no message content. |
 
 ## Relationships
@@ -168,6 +169,7 @@ Every foreign key has an explicit `ON DELETE` behavior — none are left to the 
 | `task_lists.user_id` | `users.id` | `CASCADE` | Same ownership model as trips. |
 | `tasks.user_id` | `users.id` | `CASCADE` | Same ownership model as trips. |
 | `ai_conversations.user_id` | `users.id` | `CASCADE` | Conversations have no meaning detached from their owning user. |
+| `notification_deliveries.user_id` | `users.id` | `CASCADE` | A delivery record has no meaning without its user. |
 | `device_tokens.user_id` | `users.id` | `CASCADE` | A deleted account's devices must stop receiving pushes. |
 | `password_reset_codes.user_id` | `users.id` | `CASCADE` | A reset code has no meaning without its user; removed together with the account. |
 | `ai_chat_usage.user_id` | `users.id` | `CASCADE` | A usage count has no meaning without its user; removed together with the account (account deletion). |
@@ -178,7 +180,7 @@ Every foreign key has an explicit `ON DELETE` behavior — none are left to the 
 
 `CASCADE` here applies to **hard deletes only**. Routine user-facing deletion of `trips`, `task_lists`, and `tasks` is a soft delete (`deleted_at` set), which does not trigger any `ON DELETE` behavior at all — cascades only activate for genuine row removal.
 
-**Account deletion is a hard delete.** `DELETE /api/v1/users/me` (see [15-api-design.md](15-api-design.md#users--profile)) removes the `users` row, and the cascades above remove every row the user owns in the same statement: `refresh_tokens`, `password_reset_codes`, `device_tokens`, `task_lists`, `tasks`, `trips` (and through them `itinerary_items`) and `ai_chat_usage`. Nothing is kept: the app stores and KVKK/GDPR expect the data to be gone, and a soft-deleted user would also block re-registering the same email, since the case-insensitive email index is not partial. No code path sets `users.deleted_at`, so the admin panel's deleted-user counts stay at zero.
+**Account deletion is a hard delete.** `DELETE /api/v1/users/me` (see [15-api-design.md](15-api-design.md#users--profile)) removes the `users` row, and the cascades above remove every row the user owns in the same statement: `refresh_tokens`, `password_reset_codes`, `device_tokens`, `notification_deliveries`, `task_lists`, `tasks`, `trips` (and through them `itinerary_items`) and `ai_chat_usage`. Nothing is kept: the app stores and KVKK/GDPR expect the data to be gone, and a soft-deleted user would also block re-registering the same email, since the case-insensitive email index is not partial. No code path sets `users.deleted_at`, so the admin panel's deleted-user counts stay at zero.
 
 ## Schema
 

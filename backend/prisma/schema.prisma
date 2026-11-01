@@ -119,6 +119,7 @@ model User {
   aiChatUsage             AiChatUsage[]
   passwordResetCodes      PasswordResetCode[]
   deviceTokens            DeviceToken[]
+  notificationDeliveries  NotificationDelivery[]
 
   @@map("users")
 }
@@ -180,6 +181,30 @@ model DeviceToken {
 
   @@index([userId])
   @@map("device_tokens")
+}
+
+/// A push notification the scheduler has claimed (week 4), so it goes out at
+/// most once even across restarts or two instances running during a deploy:
+/// the scheduler inserts the row first and sends only if the insert won.
+/// `dedupeKey` names the occurrence, e.g. `TASK_REMINDER:<taskId>:<fire time>`
+/// or `DAILY_SUMMARY:<userId>:<local date>` (a changed task time is a new
+/// occurrence). Deleted with the user.
+model NotificationDelivery {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  kind         NotificationKind
+  dedupeKey    String           @unique @map("dedupe_key")
+  scheduledFor DateTime         @map("scheduled_for") @db.Timestamptz
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification_deliveries")
+}
+
+enum NotificationKind {
+  TASK_REMINDER
+  DAILY_SUMMARY
 }
 
 /// Where a device token comes from. Only Android is built; iOS would need APNs.
