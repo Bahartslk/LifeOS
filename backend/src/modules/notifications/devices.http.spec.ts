@@ -94,3 +94,27 @@ describe('push devices (HTTP)', () => {
     expect(rows()).toEqual([{ userId: bob.id, token: 'bob-phone' }]);
   });
 });
+
+describe('DELETE /api/v1/notifications/devices rate limit (HTTP)', () => {
+  let ctx: HttpTestApp;
+
+  beforeAll(async () => {
+    ctx = await createHttpTestApp([]);
+  });
+
+  afterAll(async () => {
+    await ctx.close();
+  });
+
+  it('allows 10 requests a minute from one IP, then answers 429', async () => {
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 11; attempt++) {
+      const result = await ctx.http.delete('/api/v1/notifications/devices', {
+        body: { token: `guess-${attempt}` },
+      });
+      statuses.push(result.status);
+    }
+
+    expect(statuses).toEqual([...Array<number>(10).fill(200), 429]);
+  });
+});

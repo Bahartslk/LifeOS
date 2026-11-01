@@ -5,8 +5,11 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { THROTTLE_WINDOW_MS, throttleLimits } from '../../config/throttle.config';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
@@ -39,6 +42,7 @@ export class NotificationsController {
   }
 
   @Delete('devices')
+  @Throttle({ default: { ttl: THROTTLE_WINDOW_MS, limit: throttleLimits.deviceUnregister } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
@@ -46,6 +50,7 @@ export class NotificationsController {
   })
   @ApiOkResponse({ type: DeviceResponseDto })
   @ApiBadRequestResponse({ description: 'Missing token.' })
+  @ApiTooManyRequestsResponse({ description: 'Too many requests from this IP.' })
   async unregisterDevice(@Body() dto: UnregisterDeviceDto): Promise<DeviceResponseDto> {
     await this.notificationsService.unregisterDevice(dto.token);
     return { success: true };

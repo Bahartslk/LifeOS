@@ -36,4 +36,7 @@ export const throttleLimits = {
   forgotPassword: limitFromEnv('THROTTLE_FORGOT_PASSWORD_LIMIT', 5),
   // Guessing a code: each code also stops working after a few wrong tries.
   resetPassword: limitFromEnv('THROTTLE_RESET_PASSWORD_LIMIT', 10),
+  // DELETE /notifications/devices needs no access token, so it is capped per IP
+  // against someone sweeping guessed tokens. A real sign-out sends one request.
+  deviceUnregister: limitFromEnv('THROTTLE_DEVICE_UNREGISTER_LIMIT', 10),
 };

@@ -64,6 +64,7 @@ export const envValidationSchema = Joi.object({
   THROTTLE_PASSWORD_CHANGE_LIMIT: Joi.number().integer().min(1).default(5),
   THROTTLE_FORGOT_PASSWORD_LIMIT: Joi.number().integer().min(1).default(5),
   THROTTLE_RESET_PASSWORD_LIMIT: Joi.number().integer().min(1).default(10),
+  THROTTLE_DEVICE_UNREGISTER_LIMIT: Joi.number().integer().min(1).default(10),
 
   // Email (password reset codes) through Brevo's HTTPS API; Railway's plan
   // blocks outbound SMTP. Optional: without BREVO_API_KEY, codes are written

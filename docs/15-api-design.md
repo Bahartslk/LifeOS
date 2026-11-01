@@ -129,7 +129,7 @@ Push notifications go through Firebase Cloud Messaging (week 4). Android only; i
 | DELETE | `/api/v1/notifications/devices` | Forget a device (sign-out) | No |
 
 - **`PUT /notifications/devices`** `{ "token", "platform": "ANDROID" | "IOS" }` → `200 { "success": true }`. Idempotent: registering again refreshes the device. A token registered by another user moves to the caller (one device, one owner). Unknown fields or a missing token → `400`.
-- **`DELETE /notifications/devices`** `{ "token" }` → always `200 { "success": true }`. No access token is needed, so a device whose session already expired can still unregister at sign-out. The answer is the same whether or not the token was known.
+- **`DELETE /notifications/devices`** `{ "token" }` → always `200 { "success": true }`. No access token is needed, so a device whose session already expired can still unregister at sign-out. The answer is the same whether or not the token was known. Rate limited to 10 requests per minute per client IP (`THROTTLE_DEVICE_UNREGISTER_LIMIT`), then `429`.
 - **When devices are forgotten:**
   - At sign-out (the app unregisters).
   - When FCM reports a token as unregistered or malformed.
