@@ -41,6 +41,14 @@ export interface AppConfig {
     fromEmail: string | undefined;
     fromName: string;
   };
+  notifications: {
+    /**
+     * The Firebase service account key (JSON, or the JSON base64-encoded)
+     * used to send push notifications through FCM. Without it, pushes are
+     * only logged locally (never in production, where they are skipped).
+     */
+    firebaseServiceAccountJson: string | undefined;
+  };
   passwordReset: {
     /** How long a reset code stays valid. */
     codeTtlMinutes: number;
@@ -141,6 +149,9 @@ export default (): AppConfig => ({
     brevoApiKey: process.env.BREVO_API_KEY || undefined,
     fromEmail: process.env.MAIL_FROM_EMAIL || undefined,
     fromName: process.env.MAIL_FROM_NAME || 'LifeOS',
+  },
+  notifications: {
+    firebaseServiceAccountJson: process.env.FIREBASE_SERVICE_ACCOUNT_JSON || undefined,
   },
   passwordReset: {
     codeTtlMinutes: parseInt(process.env.PASSWORD_RESET_CODE_TTL_MINUTES ?? '15', 10),

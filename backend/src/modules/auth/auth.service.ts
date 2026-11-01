@@ -15,6 +15,7 @@ import { RefreshToken, User } from '@prisma/client';
 import { AppConfig } from '../../config/configuration';
 import { parseDurationMs } from '../../common/utils/duration.util';
 import { JwtPayload } from '../../common/strategies/jwt.strategy';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import { RefreshTokensRepository } from './repositories/refresh-tokens.repository';
 import { RegisterDto } from './dto/register.dto';
@@ -52,6 +53,7 @@ export class AuthService {
     private readonly refreshTokensRepository: RefreshTokensRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<AppConfig, true>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthTokensDto> {
@@ -167,6 +169,8 @@ export class AuthService {
       throw new NotFoundException('User not found.');
     }
     const revoked = await this.refreshTokensRepository.revokeAllForUser(user.id);
+    // Signed-out devices must not keep getting this user's pushes; this device registers again.
+    await this.notificationsService.forgetAllDevices(user.id);
     this.logger.log(`Password changed (user ${user.id}); ${revoked} session(s) signed out.`);
     return this.issueTokenPair(user);
   }

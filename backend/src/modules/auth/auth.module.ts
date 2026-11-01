@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AppConfig } from '../../config/configuration';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { MailModule } from '../mail/mail.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { PasswordResetEmailLimiter } from './password-reset-email-limiter';
 import { PasswordResetService } from './password-reset.service';
@@ -39,6 +40,7 @@ import { RefreshTokensRepository } from './repositories/refresh-tokens.repositor
     }),
     UsersModule,
     MailModule,
+    NotificationsModule,
   ],
   controllers: [AuthController, AccountPasswordController],
   providers: [

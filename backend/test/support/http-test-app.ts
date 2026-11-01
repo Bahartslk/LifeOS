@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import { PasswordResetCode, ThemeMode, User, UserRole } from '@prisma/client';
+import { DeviceToken, PasswordResetCode, ThemeMode, User, UserRole } from '@prisma/client';
 import { AdminSeed, createAdminPrismaDelegates } from './in-memory-admin-prisma';
 
 /**
@@ -91,6 +91,7 @@ function createPrismaStub(users: User[], adminSeed: AdminSeed) {
       updateMany: jest.fn(async () => ({ count: 0 })),
     },
     passwordResetCode: createPasswordResetCodeDelegate(),
+    deviceToken: createDeviceTokenDelegate(),
     task: admin.task,
     trip: admin.trip,
     refreshToken: {
@@ -152,6 +153,46 @@ function createPasswordResetCodeDelegate() {
   };
 }
 
+/** In-memory `device_tokens`, supporting exactly the queries `DeviceTokensRepository` makes. */
+function createDeviceTokenDelegate() {
+  const rows: DeviceToken[] = [];
+  type Where = { token?: string | { in: string[] }; userId?: string };
+  const matches = (row: DeviceToken, where: Where) =>
+    (where.userId === undefined || row.userId === where.userId) &&
+    (where.token === undefined ||
+      (typeof where.token === 'string'
+        ? row.token === where.token
+        : where.token.in.includes(row.token)));
+  return {
+    rows,
+    upsert: jest.fn(
+      async ({
+        where,
+        create,
+        update,
+      }: {
+        where: { token: string };
+        create: Omit<DeviceToken, 'id' | 'createdAt'>;
+        update: Partial<DeviceToken>;
+      }) => {
+        const existing = rows.find((row) => row.token === where.token);
+        if (existing) return Object.assign(existing, update);
+        const row: DeviceToken = { id: randomUUID(), createdAt: new Date(), ...create };
+        rows.push(row);
+        return row;
+      },
+    ),
+    findMany: jest.fn(async ({ where }: { where: Where }) =>
+      rows.filter((row) => matches(row, where)).map((row) => ({ token: row.token })),
+    ),
+    deleteMany: jest.fn(async ({ where }: { where: Where }) => {
+      const doomed = rows.filter((row) => matches(row, where));
+      doomed.forEach((row) => rows.splice(rows.indexOf(row), 1));
+      return { count: doomed.length };
+    }),
+  };
+}
+
 export interface HttpResult {
   status: number;
   /** Response headers, lower-cased names. */
@@ -174,6 +215,7 @@ export interface HttpTestApp {
     get(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     post(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     patch(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
+    put(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     delete(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
     options(path: string, options?: HttpRequestOptions): Promise<HttpResult>;
   };
@@ -245,6 +287,7 @@ export async function createHttpTestApp(
       get: (path, options) => send('GET', path, options),
       post: (path, options) => send('POST', path, options),
       patch: (path, options) => send('PATCH', path, options),
+      put: (path, options) => send('PUT', path, options),
       delete: (path, options) => send('DELETE', path, options),
       options: (path, options) => send('OPTIONS', path, options),
     },
