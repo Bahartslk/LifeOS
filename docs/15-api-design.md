@@ -50,6 +50,29 @@ This document defines the REST API surface exposed by the NestJS backend, implem
 | POST | `/api/v1/auth/forgot-password` | FR-AUTH-04 | No |
 | POST | `/api/v1/auth/reset-password` | FR-AUTH-04 | No |
 
+### Password reset
+
+A forgotten password is reset with a 6-digit code sent by email (FR-AUTH-04).
+
+- **`POST /auth/forgot-password`** `{ "email" }` → always `200 { "success": true }`, whether or not the address has an account. For a registered address, the server closes the user's open codes, stores a bcrypt hash of a new random code (valid `PASSWORD_RESET_CODE_TTL_MINUTES`, default 15) and emails it. This work runs after the response, so neither the answer nor its timing reveals whether the account exists. A failed send is logged (status only) and doesn't change the answer.
+- **`POST /auth/reset-password`** `{ "email", "code", "newPassword" }` → `200 { "success": true }`.
+  - `code` is exactly 6 digits; `newPassword` follows the sign-up rule (8–72 characters). Other validation failures are a plain `400`.
+  - Only the user's newest usable code is accepted. Every wrong guess counts; after `PASSWORD_RESET_MAX_ATTEMPTS` (default 5) the code stops working.
+  - A wrong, expired, used or used-up code, or an unknown address, all get the same `400` with `code: "INVALID_RESET_CODE"`.
+  - On success the password changes, every open code closes and **every session is signed out**; the user signs in again with the new password.
+- **Rate limits:**
+  - Per client IP: 5 requests a minute on forgot-password (`THROTTLE_FORGOT_PASSWORD_LIMIT`) and 10 on reset-password (`THROTTLE_RESET_PASSWORD_LIMIT`).
+  - Per email address: 3 codes an hour (`PASSWORD_RESET_EMAIL_HOURLY_LIMIT`), counted for unknown addresses too, so the limit reveals nothing. Over it: `429` with `code: "PASSWORD_RESET_EMAIL_LIMIT"`.
+  - The per-address count is kept in memory, like the per-IP limiter: it resets on restart and assumes a single instance.
+- **Email:** sent through Brevo's HTTPS API (`BREVO_API_KEY`, `MAIL_FROM_EMAIL` (a sender verified in Brevo), `MAIL_FROM_NAME`), because Railway's plan blocks outbound SMTP.
+  - Without a key, the email (with the code) is written to the backend log in development and test.
+  - In production without a key, nothing is sent and only a warning without the code is logged.
+  - The email's wording lives in `backend/src/modules/mail/templates/password-reset.template.ts`.
+- **Mobile client:**
+  - "Şifremi Unuttum?" asks for the address and opens the Reset Password screen: code, new password and its confirmation, with the sign-up rules.
+  - A wrong code shows "Kod hatalı veya süresi dolmuş. Yeni bir kod isteyebilirsiniz." under the code field; a `429` shows "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin."; "Kodu tekrar gönder" asks for a new code.
+  - On success the sign-in screen opens with "Şifreniz yenilendi. Yeni şifrenizle giriş yapın."
+
 ### Users / Profile
 
 `GET`/`PATCH /users/me` were already correctly specified below (Sprint 17.0 (Users / Profile Backend) implemented them exactly as drafted). One deviation: preferences live at top-level `/users/preferences`, not nested `/users/me/preferences` as originally drafted — that sprint's brief was explicit, so this table was updated to match (same precedent as Planner's `/planner/...` and Travel's `/travel/...` prefixes). No separate `GET /users/preferences` — `GET /users/me` already returns every preference field in the same payload.

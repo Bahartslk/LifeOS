@@ -34,6 +34,21 @@ export interface AppConfig {
      */
     trustProxyHops: number;
   };
+  mail: {
+    /** Brevo's transactional email API key. Without it, mail is only logged locally (never in production). */
+    brevoApiKey: string | undefined;
+    /** Sender address; must be a sender verified in Brevo. */
+    fromEmail: string | undefined;
+    fromName: string;
+  };
+  passwordReset: {
+    /** How long a reset code stays valid. */
+    codeTtlMinutes: number;
+    /** Wrong guesses allowed per code before it stops working. */
+    maxAttempts: number;
+    /** Reset codes that may be requested per email address per hour. */
+    emailHourlyLimit: number;
+  };
   ai: {
     geminiApiKey: string | undefined;
     /** OpenRouter's own API key (Sprint 18B's second provider) — same "optional, provider just reports unavailable without it" pattern as `geminiApiKey`. */
@@ -121,6 +136,16 @@ export default (): AppConfig => ({
       process.env.NODE_ENV === 'production' ? [] : DEV_CORS_ORIGINS,
     ),
     trustProxyHops: parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10),
+  },
+  mail: {
+    brevoApiKey: process.env.BREVO_API_KEY || undefined,
+    fromEmail: process.env.MAIL_FROM_EMAIL || undefined,
+    fromName: process.env.MAIL_FROM_NAME || 'LifeOS',
+  },
+  passwordReset: {
+    codeTtlMinutes: parseInt(process.env.PASSWORD_RESET_CODE_TTL_MINUTES ?? '15', 10),
+    maxAttempts: parseInt(process.env.PASSWORD_RESET_MAX_ATTEMPTS ?? '5', 10),
+    emailHourlyLimit: parseInt(process.env.PASSWORD_RESET_EMAIL_HOURLY_LIMIT ?? '3', 10),
   },
   ai: {
     geminiApiKey: process.env.GEMINI_API_KEY,

@@ -78,6 +78,7 @@ class LoginViewModelSessionExpiredTest {
         override suspend fun login(email: String, password: String): Result<AuthSession> = error("unused")
         override suspend fun register(fullName: String, email: String, password: String): Result<AuthSession> = error("unused")
         override suspend fun requestPasswordReset(email: String): Result<Unit> = error("unused")
+        override suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> = error("unused")
         override suspend fun getSession(): AuthSession? = error("unused")
         override suspend fun clearSession() = error("unused")
         override suspend fun clearLocalSession() = error("unused")

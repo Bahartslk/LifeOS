@@ -4,7 +4,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AppConfig } from '../../config/configuration';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
+import { MailModule } from '../mail/mail.module';
 import { UsersModule } from '../users/users.module';
+import { PasswordResetEmailLimiter } from './password-reset-email-limiter';
+import { PasswordResetService } from './password-reset.service';
+import { PasswordResetCodesRepository } from './repositories/password-reset-codes.repository';
 import { AccountPasswordController } from './account-password.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -34,9 +38,17 @@ import { RefreshTokensRepository } from './repositories/refresh-tokens.repositor
       }),
     }),
     UsersModule,
+    MailModule,
   ],
   controllers: [AuthController, AccountPasswordController],
-  providers: [JwtStrategy, AuthService, RefreshTokensRepository],
+  providers: [
+    JwtStrategy,
+    AuthService,
+    RefreshTokensRepository,
+    PasswordResetService,
+    PasswordResetCodesRepository,
+    PasswordResetEmailLimiter,
+  ],
   exports: [JwtModule, PassportModule],
 })
 export class AuthModule {}

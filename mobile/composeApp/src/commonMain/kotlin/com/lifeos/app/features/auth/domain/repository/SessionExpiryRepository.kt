@@ -16,6 +16,9 @@ interface SessionExpiryRepository {
     /** Records that the account was deleted, so the sign-in screen can say so. Navigation is up to the caller. */
     fun markAccountDeleted()
 
+    /** Leaves the "password was reset" notice for the sign-in screen. */
+    fun markPasswordReset()
+
     /**
      * The reason the user landed on sign-in, once; later calls return `null`
      * until the next expiry or deletion.

@@ -92,6 +92,7 @@ class ChangePasswordViewModel(
             when (PasswordValidator.validate(newPassword).errorOrNull()) {
                 ValidationError.EMPTY -> ProfileStrings.NEW_PASSWORD_REQUIRED
                 ValidationError.PASSWORD_TOO_SHORT -> ProfileStrings.NEW_PASSWORD_TOO_SHORT
+                ValidationError.PASSWORD_TOO_LONG -> ProfileStrings.NEW_PASSWORD_TOO_LONG
                 null -> if (newPassword == currentPassword) ProfileStrings.NEW_PASSWORD_SAME_AS_CURRENT else null
                 else -> ProfileStrings.NEW_PASSWORD_TOO_SHORT
             }

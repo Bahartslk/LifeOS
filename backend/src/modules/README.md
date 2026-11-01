@@ -490,10 +490,9 @@ existing patterns" rule applied across the whole stack.
 
 Suggested build order, since later modules depend on earlier ones:
 
-1. ~~`auth`~~ — done (Sprint 14.0). Register/login/refresh/logout; no
-   `forgot-password`/`reset-password` yet (docs/15-api-design.md lists both
-   under Authentication but this sprint's brief scoped only the four
-   above).
+1. ~~`auth`~~ — done (Sprint 14.0). Register/login/refresh/logout, later
+   `forgot-password`/`reset-password` with an emailed 6-digit code
+   (`PasswordResetService`, sending through `mail/`'s `MailService`).
 2. ~~`users`~~ — done (Sprint 17.0). Profile + preferences on top of
    Sprint 14.0's find/create. `PATCH /users/me/password` (FR-PROFILE-03)
    is done too, served by `AuthModule`'s `AccountPasswordController`.

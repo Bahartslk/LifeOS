@@ -60,6 +60,25 @@ export const envValidationSchema = Joi.object({
   THROTTLE_LOGIN_LIMIT: Joi.number().integer().min(1).default(10),
   THROTTLE_REGISTER_LIMIT: Joi.number().integer().min(1).default(10),
   THROTTLE_REFRESH_LIMIT: Joi.number().integer().min(1).default(30),
+  THROTTLE_ACCOUNT_DELETION_LIMIT: Joi.number().integer().min(1).default(5),
+  THROTTLE_PASSWORD_CHANGE_LIMIT: Joi.number().integer().min(1).default(5),
+  THROTTLE_FORGOT_PASSWORD_LIMIT: Joi.number().integer().min(1).default(5),
+  THROTTLE_RESET_PASSWORD_LIMIT: Joi.number().integer().min(1).default(10),
+
+  // Email (password reset codes) through Brevo's HTTPS API; Railway's plan
+  // blocks outbound SMTP. Optional: without BREVO_API_KEY, codes are written
+  // to the log in development and test, and not sent at all in production.
+  // A sender address is required as soon as a key is set.
+  BREVO_API_KEY: Joi.string().optional().allow(''),
+  MAIL_FROM_EMAIL: Joi.when('BREVO_API_KEY', {
+    is: Joi.string().min(1).required(),
+    then: Joi.string().email().required(),
+    otherwise: Joi.string().email().optional().allow(''),
+  }),
+  MAIL_FROM_NAME: Joi.string().optional().allow(''),
+  PASSWORD_RESET_CODE_TTL_MINUTES: Joi.number().integer().min(5).max(60).default(15),
+  PASSWORD_RESET_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
+  PASSWORD_RESET_EMAIL_HOURLY_LIMIT: Joi.number().integer().min(1).default(3),
 
   // AI — Sprint 18A (AI Foundation) and Sprint 18B (First AI Capabilities).
   // GEMINI_API_KEY/OPENROUTER_API_KEY stay optional (see this file's top

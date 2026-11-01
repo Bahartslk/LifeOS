@@ -85,6 +85,7 @@ internal object ProfileStrings {
     const val CURRENT_PASSWORD_WRONG = "Mevcut şifre yanlış."
     const val NEW_PASSWORD_REQUIRED = "Yeni şifre gerekli."
     const val NEW_PASSWORD_TOO_SHORT = "Şifre en az 8 karakter olmalı."
+    const val NEW_PASSWORD_TOO_LONG = "Şifre en fazla 72 karakter olabilir."
     const val NEW_PASSWORD_SAME_AS_CURRENT = "Yeni şifre mevcut şifreden farklı olmalı."
     const val CONFIRM_PASSWORD_REQUIRED = "Şifre tekrarı gerekli."
     const val PASSWORDS_DO_NOT_MATCH = "Şifreler eşleşmiyor."

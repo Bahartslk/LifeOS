@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
-import { ThemeMode, User, UserRole } from '@prisma/client';
+import { PasswordResetCode, ThemeMode, User, UserRole } from '@prisma/client';
 import { AdminSeed, createAdminPrismaDelegates } from './in-memory-admin-prisma';
 
 /**
@@ -90,6 +90,7 @@ function createPrismaStub(users: User[], adminSeed: AdminSeed) {
       update: jest.fn(),
       updateMany: jest.fn(async () => ({ count: 0 })),
     },
+    passwordResetCode: createPasswordResetCodeDelegate(),
     task: admin.task,
     trip: admin.trip,
     refreshToken: {
@@ -99,6 +100,55 @@ function createPrismaStub(users: User[], adminSeed: AdminSeed) {
       update: jest.fn(),
       updateMany: jest.fn(async () => ({ count: 0 })),
     },
+  };
+}
+
+/** In-memory `password_reset_codes`, supporting exactly the queries `PasswordResetCodesRepository` makes. */
+function createPasswordResetCodeDelegate() {
+  const codes: PasswordResetCode[] = [];
+  return {
+    rows: codes,
+    create: jest.fn(
+      async ({ data }: { data: Pick<PasswordResetCode, 'userId' | 'codeHash' | 'expiresAt'> }) => {
+        const row: PasswordResetCode = {
+          id: randomUUID(),
+          attempts: 0,
+          usedAt: null,
+          createdAt: new Date(),
+          ...data,
+        };
+        codes.push(row);
+        return row;
+      },
+    ),
+    findFirst: jest.fn(
+      async ({
+        where,
+      }: {
+        where: { userId: string; expiresAt: { gt: Date }; attempts: { lt: number } };
+      }) =>
+        [...codes]
+          .reverse()
+          .find(
+            (c) =>
+              c.userId === where.userId &&
+              c.usedAt === null &&
+              c.expiresAt > where.expiresAt.gt &&
+              c.attempts < where.attempts.lt,
+          ) ?? null,
+    ),
+    update: jest.fn(async ({ where }: { where: { id: string } }) => {
+      const row = codes.find((c) => c.id === where.id)!;
+      row.attempts += 1;
+      return row;
+    }),
+    updateMany: jest.fn(
+      async ({ where, data }: { where: { userId: string }; data: { usedAt: Date } }) => {
+        const open = codes.filter((c) => c.userId === where.userId && c.usedAt === null);
+        open.forEach((c) => (c.usedAt = data.usedAt));
+        return { count: open.length };
+      },
+    ),
   };
 }
 

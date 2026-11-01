@@ -8,10 +8,12 @@ import com.lifeos.app.features.auth.domain.model.AuthSession
 import com.lifeos.app.features.auth.domain.model.AuthUser
 import com.lifeos.app.features.auth.domain.model.EmailAlreadyRegisteredException
 import com.lifeos.app.features.auth.domain.model.InvalidCredentialsException
+import com.lifeos.app.features.auth.domain.model.InvalidResetCodeException
+import com.lifeos.app.features.auth.domain.model.PasswordResetRateLimitedException
 import com.lifeos.app.features.auth.domain.model.SessionTokens
 import com.lifeos.app.features.auth.domain.repository.AuthRepository
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 
 /**
  * Real implementation of [AuthRepository], backed by
@@ -84,17 +86,29 @@ class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun requestPasswordReset(email: String): Result<Unit> {
-        // FR-AUTH-04's backend endpoints (POST /auth/forgot-password,
-        // /auth/reset-password) don't exist yet — docs/15-api-design.md
-        // documents both as undelivered. Kept as a graceful, always-succeeds
-        // stub identical to the former fake behavior (Forgot Password's
-        // "Success state" doesn't distinguish a known vs. unknown email
-        // either way, per that screen's own anti-enumeration reasoning) so
-        // ForgotPasswordViewModel needs no changes; real integration is a
-        // follow-up once that backend work ships.
-        delay(FAKE_REQUEST_DELAY_MS)
-        return Result.success(Unit)
+    override suspend fun requestPasswordReset(email: String): Result<Unit> = passwordResetCall {
+        remoteDataSource.forgotPassword(email)
+    }
+
+    override suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit> =
+        passwordResetCall { remoteDataSource.resetPassword(email = email, code = code, newPassword = newPassword) }
+
+    /** Maps the reset routes' two specific failures; anything else (network, 5xx) passes through as is. */
+    private suspend fun passwordResetCall(call: suspend () -> Unit): Result<Unit> = try {
+        call()
+        Result.success(Unit)
+    } catch (e: ApiException) {
+        Result.failure(
+            when {
+                e.statusCode == HttpStatusCode.TooManyRequests.value -> PasswordResetRateLimitedException()
+                e.code == INVALID_RESET_CODE -> InvalidResetCodeException()
+                else -> e
+            },
+        )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 
     override suspend fun getSession(): AuthSession? = tokenLocalDataSource.getSession()
@@ -136,6 +150,7 @@ class AuthRepositoryImpl(
     }
 
     private companion object {
-        const val FAKE_REQUEST_DELAY_MS = 500L
+        /** The backend's `code` for a wrong, expired or used-up reset code. */
+        const val INVALID_RESET_CODE = "INVALID_RESET_CODE"
     }
 }

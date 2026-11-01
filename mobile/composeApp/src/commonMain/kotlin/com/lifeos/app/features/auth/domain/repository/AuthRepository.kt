@@ -18,7 +18,11 @@ interface AuthRepository {
 
     suspend fun register(fullName: String, email: String, password: String): Result<AuthSession>
 
+    /** Asks the backend to email a 6-digit reset code. Succeeds the same way for every address. */
     suspend fun requestPasswordReset(email: String): Result<Unit>
+
+    /** Sets a new password with the emailed code; fails with InvalidResetCodeException or PasswordResetRateLimitedException. */
+    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<Unit>
 
     /** The persisted session from a previous app run, if any — used by Splash. */
     suspend fun getSession(): AuthSession?

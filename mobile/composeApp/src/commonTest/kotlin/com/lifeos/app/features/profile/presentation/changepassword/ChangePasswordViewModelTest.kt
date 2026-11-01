@@ -77,6 +77,15 @@ class ChangePasswordViewModelTest {
     }
 
     @Test
+    fun aNewPasswordOver72Characters_isRejected() {
+        fill(new = "a".repeat(73))
+        viewModel.onEvent(ChangePasswordEvent.SubmitClicked)
+
+        assertEquals(ProfileStrings.NEW_PASSWORD_TOO_LONG, viewModel.uiState.value.newPasswordError)
+        assertTrue(profileRepository.passwordChanges.isEmpty())
+    }
+
+    @Test
     fun aMismatchedConfirmation_isRejected() {
         fill(confirm = "something-else")
         viewModel.onEvent(ChangePasswordEvent.SubmitClicked)

@@ -11,8 +11,8 @@ import kotlin.concurrent.Volatile
  * In-memory session-end signal, a Koin `single`. [AuthTokenProviderImpl]
  * calls [markSessionExpired] after the backend rejects a refresh; the root
  * navigation (its only collector) observes it and returns to sign-in.
- * Account deletion only leaves a notice for the sign-in screen; the Profile
- * screen navigates by itself.
+ * Account deletion and a password reset only leave a notice for the sign-in
+ * screen; the screens that cause them navigate by themselves.
  */
 class SessionExpiryRepositoryImpl : SessionExpiryRepository {
 
@@ -33,6 +33,10 @@ class SessionExpiryRepositoryImpl : SessionExpiryRepository {
 
     override fun markAccountDeleted() {
         pendingNotice = SignInNotice.ACCOUNT_DELETED
+    }
+
+    override fun markPasswordReset() {
+        pendingNotice = SignInNotice.PASSWORD_RESET
     }
 
     override fun observeSessionExpired(): Flow<Unit> = expired.receiveAsFlow()
