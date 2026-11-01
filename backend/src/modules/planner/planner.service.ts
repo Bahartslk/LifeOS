@@ -40,6 +40,19 @@ function assertTimedFields(task: {
   }
 }
 
+/** What the push scheduler needs to know about a task: when it is, what it is, and whose. */
+export interface ScheduledTaskInfo {
+  id: string;
+  userId: string;
+  title: string;
+  dueDate: string;
+  dueTime: string | null;
+  type: TaskType;
+  durationMinutes: number | null;
+  location: string | null;
+  reminderMinutesBefore: number | null;
+}
+
 export interface CreateIntegrationTaskData {
   title: string;
   description?: string | null;
@@ -282,6 +295,41 @@ export class PlannerService {
       travelTasks: combined
         .filter((task) => task.source === TaskSource.TRAVEL)
         .map((task) => this.toResponse(task)),
+    };
+  }
+
+  /** The scheduler's reminder candidates (see `TasksRepository.findReminderCandidates`). Dates are "YYYY-MM-DD". */
+  async findReminderCandidates(
+    userIds: string[],
+    dueFrom: string,
+    dueTo: string,
+  ): Promise<ScheduledTaskInfo[]> {
+    if (userIds.length === 0) return [];
+    const tasks = await this.tasksRepository.findReminderCandidates(
+      userIds,
+      toDbDate(dueFrom),
+      toDbDate(dueTo),
+    );
+    return tasks.map((task) => this.toScheduledInfo(task));
+  }
+
+  /** The user's unfinished tasks on `date` ("YYYY-MM-DD"), earliest first: the morning summary's content. */
+  async findUnfinishedDueOn(userId: string, date: string): Promise<ScheduledTaskInfo[]> {
+    const tasks = await this.tasksRepository.findUnfinishedDueOn(userId, toDbDate(date));
+    return tasks.map((task) => this.toScheduledInfo(task));
+  }
+
+  private toScheduledInfo(task: Task): ScheduledTaskInfo {
+    return {
+      id: task.id,
+      userId: task.userId,
+      title: task.title,
+      dueDate: fromDbDate(task.dueDate),
+      dueTime: fromDbTime(task.dueTime),
+      type: task.type,
+      durationMinutes: task.durationMinutes,
+      location: task.location,
+      reminderMinutesBefore: task.reminderMinutesBefore,
     };
   }
 

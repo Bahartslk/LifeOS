@@ -65,3 +65,34 @@ describe('UsersService.deleteAccount', () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain(PASSWORD);
   });
 });
+
+describe('UsersService.findNotificationTargets', () => {
+  it('returns time zones and push preferences, counting an unset preference as on', async () => {
+    const findManyByIds = jest.fn().mockResolvedValue([
+      {
+        id: 'user-1',
+        timezone: 'Europe/Istanbul',
+        notificationPreferences: { taskReminders: true, tripReminders: true, aiInsights: true },
+      },
+      {
+        id: 'user-2',
+        timezone: 'Europe/Berlin',
+        notificationPreferences: { taskReminders: false, dailySummary: false },
+      },
+    ]);
+    const service = new UsersService({ findManyByIds } as unknown as UsersRepository);
+
+    await expect(service.findNotificationTargets(['user-1', 'user-2'])).resolves.toEqual([
+      { userId: 'user-1', timezone: 'Europe/Istanbul', taskReminders: true, dailySummary: true },
+      { userId: 'user-2', timezone: 'Europe/Berlin', taskReminders: false, dailySummary: false },
+    ]);
+  });
+
+  it('does not query for an empty list', async () => {
+    const findManyByIds = jest.fn();
+    const service = new UsersService({ findManyByIds } as unknown as UsersRepository);
+
+    await expect(service.findNotificationTargets([])).resolves.toEqual([]);
+    expect(findManyByIds).not.toHaveBeenCalled();
+  });
+});

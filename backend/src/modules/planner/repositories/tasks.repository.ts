@@ -144,6 +144,38 @@ export class TasksRepository {
     return { items: hasMore ? rows.slice(0, query.limit) : rows, hasMore };
   }
 
+  /**
+   * Unfinished tasks of `userIds` with a time and a reminder, due between
+   * `dueFrom` and `dueTo` (inclusive dates): the push reminder scheduler's
+   * candidates. The scheduler decides which ones fire now in each user's
+   * time zone.
+   */
+  findReminderCandidates(userIds: string[], dueFrom: Date, dueTo: Date): Promise<Task[]> {
+    return this.prisma.task.findMany({
+      where: {
+        userId: { in: userIds },
+        deletedAt: null,
+        status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
+        reminderMinutesBefore: { not: null },
+        dueTime: { not: null },
+        dueDate: { gte: dueFrom, lte: dueTo },
+      },
+    });
+  }
+
+  /** Unfinished tasks due on `date`, earliest time first (all-day ones last): the morning summary's content. */
+  findUnfinishedDueOn(userId: string, date: Date): Promise<Task[]> {
+    return this.prisma.task.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        dueDate: date,
+        status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
+      },
+      orderBy: [{ dueTime: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+    });
+  }
+
   /** Every active task due exactly on `today`, any status — Planner Dashboard's "today" bucket, ordered for a same-day checklist view. */
   findDueOn(userId: string, date: Date): Promise<Task[]> {
     return this.prisma.task.findMany({

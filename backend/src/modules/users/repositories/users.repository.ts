@@ -45,6 +45,10 @@ export class UsersRepository {
     });
   }
 
+  findManyByIds(ids: string[]): Promise<User[]> {
+    return this.prisma.user.findMany({ where: { id: { in: ids }, deletedAt: null } });
+  }
+
   findById(id: string): Promise<User | null> {
     return this.prisma.user.findFirst({ where: { id, deletedAt: null } });
   }

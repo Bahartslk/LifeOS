@@ -97,3 +97,46 @@ export function isIanaTimeZone(value: unknown): value is string {
 export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
   return dateInTimeZone(now, timeZone);
 }
+
+/** How far `instant` is ahead of UTC in `timeZone`, in milliseconds (e.g. +3 h for Europe/Istanbul). */
+function timeZoneOffsetMs(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(instant);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value);
+  const asUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    value('hour'),
+    value('minute'),
+    value('second'),
+  );
+  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * The instant a local wall-clock time happens in `timeZone`: "2026-11-02"
+ * "10:00" in Europe/Istanbul is 07:00Z. Used to turn a task's
+ * `dueDate`/`dueTime` (stored without a zone, meant in the user's
+ * `timezone`) into the moment a reminder fires. A time skipped by a DST
+ * change resolves to the instant just after the gap.
+ */
+export function zonedDateTimeToUtc(date: string, time: string, timeZone: string): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const wallClockAsUtc = Date.UTC(year, month - 1, day, hour, minute);
+  // Two passes: the offset at the first guess can differ from the offset at
+  // the real instant when a DST change lies between them.
+  let instant = wallClockAsUtc - timeZoneOffsetMs(new Date(wallClockAsUtc), timeZone);
+  instant = wallClockAsUtc - timeZoneOffsetMs(new Date(instant), timeZone);
+  return new Date(instant);
+}

@@ -19,6 +19,15 @@ import { UpdatePreferencesDto } from './dto/update-preferences.dto';
  * find/create/`toPublicUser`, which `AuthService` still depends on
  * unchanged.
  */
+export interface NotificationTarget {
+  userId: string;
+  timezone: string;
+  /** Push reminders for tasks and meetings (`notificationPreferences.taskReminders`). */
+  taskReminders: boolean;
+  /** The 08:00 morning summary (`notificationPreferences.dailySummary`). */
+  dailySummary: boolean;
+}
+
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
@@ -75,6 +84,25 @@ export class UsersService {
   /** Stores a new password hash (hashing is `AuthService`'s job). `false` if the account no longer exists. */
   updatePasswordHash(userId: string, passwordHash: string): Promise<boolean> {
     return this.usersRepository.updatePasswordHash(userId, passwordHash);
+  }
+
+  /**
+   * Time zone and push preferences of `userIds`, for the notification
+   * scheduler. A preference that was never set counts as on (the stored
+   * defaults predate `dailySummary`).
+   */
+  async findNotificationTargets(userIds: string[]): Promise<NotificationTarget[]> {
+    if (userIds.length === 0) return [];
+    const users = await this.usersRepository.findManyByIds(userIds);
+    return users.map((user) => {
+      const preferences = (user.notificationPreferences ?? {}) as Record<string, unknown>;
+      return {
+        userId: user.id,
+        timezone: user.timezone,
+        taskReminders: preferences.taskReminders !== false,
+        dailySummary: preferences.dailySummary !== false,
+      };
+    });
   }
 
   async getProfile(userId: string): Promise<UserProfileResponseDto> {

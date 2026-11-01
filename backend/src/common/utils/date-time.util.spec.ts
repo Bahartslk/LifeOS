@@ -1,4 +1,9 @@
-import { dateInTimeZone, isIanaTimeZone, todayInTimeZone } from './date-time.util';
+import {
+  dateInTimeZone,
+  isIanaTimeZone,
+  todayInTimeZone,
+  zonedDateTimeToUtc,
+} from './date-time.util';
 
 describe('dateInTimeZone', () => {
   it('Europe/Istanbul is already the next day at 22:30 UTC (01:30 local)', () => {
@@ -75,5 +80,37 @@ describe('isIanaTimeZone', () => {
     ['null', null],
   ])('rejects %s', (_label, value) => {
     expect(isIanaTimeZone(value)).toBe(false);
+  });
+});
+
+describe('zonedDateTimeToUtc', () => {
+  it('converts a fixed-offset zone', () => {
+    expect(zonedDateTimeToUtc('2026-11-02', '10:00', 'Europe/Istanbul').toISOString()).toBe(
+      '2026-11-02T07:00:00.000Z',
+    );
+  });
+
+  it('follows daylight saving time', () => {
+    expect(zonedDateTimeToUtc('2026-07-01', '10:00', 'Europe/Berlin').toISOString()).toBe(
+      '2026-07-01T08:00:00.000Z',
+    );
+    expect(zonedDateTimeToUtc('2026-12-01', '10:00', 'Europe/Berlin').toISOString()).toBe(
+      '2026-12-01T09:00:00.000Z',
+    );
+  });
+
+  it('handles a zone behind UTC and a local time on the previous UTC day', () => {
+    expect(zonedDateTimeToUtc('2026-11-02', '20:30', 'America/New_York').toISOString()).toBe(
+      '2026-11-03T01:30:00.000Z',
+    );
+    expect(zonedDateTimeToUtc('2026-11-02', '01:00', 'Asia/Tokyo').toISOString()).toBe(
+      '2026-11-01T16:00:00.000Z',
+    );
+  });
+
+  it('accepts aliases such as UTC and GMT', () => {
+    expect(zonedDateTimeToUtc('2026-11-02', '08:00', 'GMT').toISOString()).toBe(
+      '2026-11-02T08:00:00.000Z',
+    );
   });
 });
