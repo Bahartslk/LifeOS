@@ -1,5 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Task, TaskCategory, TaskPriority, TaskSource, TaskStatus } from '@prisma/client';
+import {
+  Prisma,
+  Task,
+  TaskCategory,
+  TaskPriority,
+  TaskSource,
+  TaskStatus,
+  TaskType,
+} from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface CreateTaskData {
@@ -13,12 +21,26 @@ export interface CreateTaskData {
   taskListId: string | null;
   /** Explicit, not defaulted here — `PlannerService.createTask` always passes `PLANNER`; `createIntegrationTask` passes whatever the calling feature module needs (e.g. `TRAVEL`). */
   source: TaskSource;
+  type: TaskType;
+  durationMinutes: number | null;
+  location: string | null;
+  reminderMinutesBefore: number | null;
 }
 
 export type UpdateTaskData = Partial<
   Pick<
     CreateTaskData,
-    'title' | 'description' | 'dueDate' | 'dueTime' | 'priority' | 'category' | 'taskListId'
+    | 'title'
+    | 'description'
+    | 'dueDate'
+    | 'dueTime'
+    | 'priority'
+    | 'category'
+    | 'taskListId'
+    | 'type'
+    | 'durationMinutes'
+    | 'location'
+    | 'reminderMinutesBefore'
   >
 > & { status?: TaskStatus };
 
@@ -63,6 +85,10 @@ export class TasksRepository {
         taskListId: data.taskListId,
         status: TaskStatus.TODO,
         source: data.source,
+        type: data.type,
+        durationMinutes: data.durationMinutes,
+        location: data.location,
+        reminderMinutesBefore: data.reminderMinutesBefore,
       },
     });
   }

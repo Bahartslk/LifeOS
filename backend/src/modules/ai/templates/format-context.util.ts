@@ -16,7 +16,10 @@ import {
 
 function formatTask(task: AiPlannerTaskSummary): string {
   const time = task.dueTime ? ` ${task.dueTime}` : '';
-  return `- [${task.status}/${task.priority}] ${task.title} (${task.dueDate}${time})`;
+  const duration = task.durationMinutes ? `, ${task.durationMinutes} min` : '';
+  const location = task.location ? `, at ${task.location}` : '';
+  const kind = task.type === 'MEETING' ? 'MEETING: ' : '';
+  return `- [${task.status}/${task.priority}] ${kind}${task.title} (${task.dueDate}${time}${duration}${location})`;
 }
 
 export function formatPlannerContext(planner: AiPlannerContext): string {

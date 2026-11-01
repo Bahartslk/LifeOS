@@ -47,6 +47,9 @@ function toTaskSummary(task: TaskResponseDto): AiPlannerTaskSummary {
     dueTime: task.dueTime,
     priority: task.priority,
     status: task.status,
+    type: task.type,
+    durationMinutes: task.durationMinutes,
+    location: task.location,
   };
 }
 

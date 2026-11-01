@@ -16,6 +16,8 @@ import { CreateTaskDto } from './create-task.dto';
  * convention has no natural way to also mean "clear" without a second
  * signal (e.g. an explicit `null`), which would need its own validation
  * story. A real requirement, not a decision to make speculatively now.
+ * The meeting fields `durationMinutes`/`location`/`reminderMinutesBefore`
+ * are different: there an explicit `null` clears the value.
  */
 export class UpdateTaskDto extends PartialType(CreateTaskDto) {
   @ApiPropertyOptional({ enum: TaskStatus })
