@@ -64,7 +64,7 @@ This document catalogues every screen in LifeOS, grouped by module, and defines 
 | Task List | List of tasks, filterable by list/status. |
 | Calendar View | Calendar-based view of tasks with due dates/times. |
 | Task Details | Details for a single task. |
-| Create / Edit Task | Form to create a new task or edit an existing one. |
+| Create / Edit Task | Form to create a new task or edit an existing one. Creating is built, including meetings (type, time picker, duration, place, reminder); editing is not. |
 
 ### Profile
 

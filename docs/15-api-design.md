@@ -263,6 +263,15 @@ Rules:
 - A new meeting without `reminderMinutesBefore` gets a reminder **10 minutes** before; send `null` to have none. A new plain task gets no reminder unless one is sent.
 - On `PATCH`, an explicit `null` clears `durationMinutes`, `location` or `reminderMinutesBefore`.
 - All times are in the user's `timezone`, like `dueDate`/`dueTime`. Tasks created by other features (Travel) are plain tasks without a reminder.
+- In the AI context a meeting reads `Title (meeting, date time, 30 min, at Place)`. The marker sits in the details, not before the title, because the model copies titles into its answers.
+
+**Mobile client (Create Task and the agenda):**
+
+- The form has a "Görev / Toplantı" choice, a 24-hour time picker, duration chips (Yok … 2 saat), a place field (meetings only) and reminder chips (Yok / Zamanında / 5 / 10 / 15 / 30 dk / 1 saat). The reminder chips replace the old switch, which was never saved.
+- Choosing "Toplantı" presets a 10-minute reminder unless one was already chosen. A meeting or a reminder without a time shows "Toplantı için saat seçin." / "Hatırlatma için saat seçin." and isn't saved. A picked time wins over a time typed into the date field ("Yarın, 14:00"); either one is enough.
+- The form always sends `reminderMinutesBefore` (also `null`), so the backend's meeting default never overrides the user's choice.
+- In the agenda, the upcoming list, the calendar's day list and the task detail, a meeting shows a group icon, its time range (`10:00–11:00`, from time plus duration) and a "Toplantı · place" line. The task detail also shows the type, place, duration and reminder ("10 dk önce").
+- "Ajandaya ekle" from the Daily Brief still creates a plain task without a reminder: a suggestion has a date but no time.
 
 **`GET /api/v1/planner/dashboard?date=YYYY-MM-DD`.** `date` is optional: the caller's own local "today" (the mobile client sends its device date). If it is omitted, the server uses today in the caller's `User.timezone`, never its own UTC date, which in Turkey is still "yesterday" between 00:00 and 03:00. An invalid format or impossible calendar date returns `400`. Response lists, all relative to that "today":
 
